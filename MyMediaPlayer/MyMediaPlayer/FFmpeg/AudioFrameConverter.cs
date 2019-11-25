@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using FFmpeg.AutoGen;
-
+/*
 namespace MyMediaPlayer.FFmpeg
 {
     public sealed unsafe class AudioFrameConverter : IDisposable
@@ -112,4 +112,4 @@ namespace MyMediaPlayer.FFmpeg
             }
         }
     }
-}
+}*/

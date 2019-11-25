@@ -19,6 +19,7 @@ namespace MyMediaPlayer
         Dispatcher dispatcher = Application.Current.Dispatcher;
 
         private bool stopThread = false;
+        string videoFile;
 
         public MainWindow()
         {
@@ -31,14 +32,13 @@ namespace MyMediaPlayer
         ConcurrentQueue<AVFrame> vq = new ConcurrentQueue<AVFrame>();
         ConcurrentQueue<AVFrame> aq = new ConcurrentQueue<AVFrame>();
         VideoFrameConverter vfc;
-        AudioFrameConverter afc;
+        //AudioFrameConverter afc;
 
         private unsafe void PlayingMedia()
         {
             //string url = @"D:\Movie\[2001] 해리 포터와 마법사의 돌.1080p.BRRip.x264.YIFY.mp4";
-            string url = @"C:\mpstudy\fire.avi";
 
-            using (var sd = new StreamDecoder(url))
+            using (var sd = new StreamDecoder(videoFile))
             {
                 Task tVideoTask = Task.Factory.StartNew(() => VideoTask(sd.vcodecContext));
 
@@ -76,6 +76,31 @@ namespace MyMediaPlayer
                 }
             }
         }
+        private void Play_Button_Click(object sender, RoutedEventArgs e)
+        {
+            if (videoThread.ThreadState == System.Threading.ThreadState.Unstarted)
+            {
+                Dispatcher.Invoke(DispatcherPriority.Normal, new Action(delegate
+                {
+                    image.Visibility = Visibility.Visible;
+                    screen.Visibility = Visibility.Hidden;
+                }));
+                videoThread.Start();
+            }
+        }
+        private void FileOpenClick(object sender, RoutedEventArgs e)
+        {
+            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
+            dlg.Filter = "Video Files | *.mp4; *.wmv; *.avi";
+            if (dlg.ShowDialog() == true)
+            {
+                videoFile = dlg.FileName;
+            }
+            Dispatcher.Invoke(DispatcherPriority.Normal, new Action(delegate
+            {
+                txt.Text = videoFile;
+            }));
+        }
 
         void BitmapToImageSource(Bitmap bitmap)
         {
@@ -112,13 +137,7 @@ namespace MyMediaPlayer
             }
         }
 
-        private void Play_Button_Click(object sender, RoutedEventArgs e)
-        {
-            if (videoThread.ThreadState == System.Threading.ThreadState.Unstarted)
-            {
-                videoThread.Start();
-            }
-        }
+
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {

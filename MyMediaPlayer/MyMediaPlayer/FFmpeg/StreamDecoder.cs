@@ -102,7 +102,8 @@ namespace MyMediaPlayer.FFmpeg
                     } while (true);                 
                 }
 
-                if (_pPacket->stream_index == audioStreamIndex)
+                //오디오 프레임 출력
+                /*if (_pPacket->stream_index == audioStreamIndex)
                 {
                     ret = ffmpeg.avcodec_send_packet(acodecContext, _pPacket);
                     if (ret != 0) { continue; }
@@ -115,7 +116,7 @@ namespace MyMediaPlayer.FFmpeg
                         type = 1;
                         return true;
                     } while (true);                   
-                }
+                } */
 
                 ffmpeg.av_packet_unref(_pPacket);
             }

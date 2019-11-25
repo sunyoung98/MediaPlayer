@@ -4,11 +4,11 @@
 winexe
 C#
 .cs
-C:\Users\tjsdu\Source\Repos\sunyoung98\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\
+C:\Users\tjsdu\Source\Repos\sunyoung98\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Release\
 MyMediaPlayer
 none
 false
-DEBUG;TRACE
+TRACE
 C:\Users\tjsdu\Source\Repos\sunyoung98\MediaPlayer\MyMediaPlayer\MyMediaPlayer\App.xaml
 11151548125
 8-1243813121
@@ -16,5 +16,5 @@ C:\Users\tjsdu\Source\Repos\sunyoung98\MediaPlayer\MyMediaPlayer\MyMediaPlayer\A
 15-462857649
 MainWindow.xaml;
 
-False
+True
 
