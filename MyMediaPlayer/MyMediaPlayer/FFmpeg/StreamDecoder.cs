@@ -19,22 +19,29 @@ namespace MyMediaPlayer.FFmpeg
 
             ffmpeg.avformat_open_input(&pFormatContext, url, null, null).ThrowExceptionIfError();
             ffmpeg.avformat_find_stream_info(_pFormatContext, null).ThrowExceptionIfError();
-
+            
             videoStreamIndex = ffmpeg.av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_VIDEO, -1, -1, null, 0);
             audioStreamIndex = ffmpeg.av_find_best_stream(_pFormatContext, AVMediaType.AVMEDIA_TYPE_AUDIO, -1, videoStreamIndex, null, 0);
 
             vcodecContext = _pFormatContext->streams[videoStreamIndex]->codec;
             acodecContext = _pFormatContext->streams[audioStreamIndex]->codec;
-
+            FullTime = _pFormatContext->duration;
+            
+            
             if (videoStreamIndex >= 0)
             {
                 AVCodecContext* avctx = OpenStream(vcodecContext);
                 FrameSize = new System.Windows.Size(avctx->width, avctx->height);
                 PixelFormat = avctx->pix_fmt;
+                
             }
 
             if (audioStreamIndex >= 0)
-                OpenStream(acodecContext);
+            {
+                AVCodecContext* actx = OpenStream(acodecContext);
+                
+
+            }
 
             _pPacket = ffmpeg.av_packet_alloc();
             _pFrame = ffmpeg.av_frame_alloc();
@@ -47,12 +54,12 @@ namespace MyMediaPlayer.FFmpeg
         public int audioStreamIndex { get; }
         public AVCodecContext* vcodecContext { get; }
         public AVCodecContext* acodecContext { get; }
-
+        public AVPacket* pPacket { get;}
+        public long FullTime { get; }
         private AVCodecContext* OpenStream(AVCodecContext* avctx)
         {
             AVCodec* codec = ffmpeg.avcodec_find_decoder(avctx->codec_id);
-            if (codec == null) throw new InvalidOperationException("No codec could be found.");
-
+            if (codec == null) throw new InvalidOperationException("No codec could be found.");   
             avctx->codec_id = codec->id;
             avctx->lowres = 0;
             if (avctx->lowres > codec->max_lowres)
@@ -116,7 +123,7 @@ namespace MyMediaPlayer.FFmpeg
                         type = 1;
                         return true;
                     } while (true);                   
-                } */
+                }*/
 
                 ffmpeg.av_packet_unref(_pPacket);
             }

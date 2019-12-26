@@ -10,17 +10,23 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using FFmpeg.AutoGen;
 using MyMediaPlayer.FFmpeg;
+using System.Windows.Controls;
 
 namespace MyMediaPlayer
 {
     public partial class MainWindow : Window
     {
+        delegate void UpdateUI();
         Thread videoThread;
         Dispatcher dispatcher = Application.Current.Dispatcher;
-
+        private static AutoResetEvent _wait;
         private bool stopThread = false;
         string videoFile;
-
+        long fullTime;
+        long finishTime, startTime;
+        volatile bool isPause=false;
+        const int AV_TIME_BASE =1000000;
+        double speed = 1.0;
         public MainWindow()
         {
             InitializeComponent();
@@ -41,12 +47,14 @@ namespace MyMediaPlayer
             using (var sd = new StreamDecoder(videoFile))
             {
                 Task tVideoTask = Task.Factory.StartNew(() => VideoTask(sd.vcodecContext));
-
+                _wait = new AutoResetEvent(false);
                 var sourceSize = sd.FrameSize;
                 var sourcePixelFormat = sd.PixelFormat;
                 var destinationSize = sourceSize;
                 var destinationPixelFormat = AVPixelFormat.AV_PIX_FMT_BGR24;
-
+                fullTime = sd.FullTime/AV_TIME_BASE;
+                finishTime = fullTime;
+                finish_Time.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new UpdateUI(TimeCheck));
                 vfc = new VideoFrameConverter(sourceSize, sourcePixelFormat, destinationSize, destinationPixelFormat);
                 
                 while (sd.TryDecodeNextFrame(out var frame, out int type) && !stopThread)
@@ -54,8 +62,16 @@ namespace MyMediaPlayer
                     if (type == 0) vq.Enqueue(frame);
                     if (type == 1) aq.Enqueue(frame);
                     System.Threading.Thread.Sleep(33);
+               
+                    
                 }
             }
+        }
+
+        
+        private void TimeCheck(){
+
+            finish_Time.Content = (finishTime/3600).ToString()+":"+ (finishTime%3600/60).ToString()+":"+ (finishTime%3600%60).ToString();
         }
 
         private unsafe void VideoTask(AVCodecContext* vcodecContext)
@@ -76,6 +92,8 @@ namespace MyMediaPlayer
                 }
             }
         }
+
+        [Obsolete]
         private void Play_Button_Click(object sender, RoutedEventArgs e)
         {
             if (videoThread.ThreadState == System.Threading.ThreadState.Unstarted)
@@ -86,6 +104,11 @@ namespace MyMediaPlayer
                     screen.Visibility = Visibility.Hidden;
                 }));
                 videoThread.Start();
+            }
+            else if(videoThread.ThreadState==System.Threading.ThreadState.Suspended)
+            {
+                isPause = false;
+                videoThread.Resume();
             }
         }
         private void FileOpenClick(object sender, RoutedEventArgs e)
@@ -137,14 +160,34 @@ namespace MyMediaPlayer
             }
         }
 
+        [Obsolete]
+        private void Pause_Button_Click(object sender, RoutedEventArgs e)
+        {
+            isPause = true;
+            videoThread.Suspend();
+        }
 
+        private void Stop_Button_Click(object sender, RoutedEventArgs e)
+        {
+            if (videoThread.ThreadState == System.Threading.ThreadState.Running)
+            {
+                
+            }
+        }
+
+        private void Speed_Button_Click(object sender, RoutedEventArgs e)
+        {
+            MenuItem menu = sender as MenuItem;
+            Speed_Button.Content = menu.Header.ToString();
+            speed = double.Parse(menu.Header.ToString());
+        }
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             if (videoThread.IsAlive)
             {
                 stopThread = true;
-                videoThread.Join();
+                videoThread.Abort();
             }
         }
     }
