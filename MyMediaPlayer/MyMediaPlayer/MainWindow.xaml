@@ -11,49 +11,26 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
-        <Rectangle x:Name="screen" HorizontalAlignment="Right"
-                    Height="401" Margin="0,70,9.6,0" VerticalAlignment="Top" Width="774" Visibility="Visible">
-        </Rectangle>
-        <Image x:Name="image" HorizontalAlignment="Left"
-                    Height="401" Margin="10,70,0,0" VerticalAlignment="Top" Width="774" Visibility="Hidden"/>
+        <ContentControl MouseDoubleClick="ContentControl_MouseDoubleClick_1">
 
-        <TextBox x:Name="txt" HorizontalAlignment="Left" VerticalAlignment="Top" Height="22" Width="541" Margin="41,25,0,0" />
-        <Button  x:Name="OpenFile_Button" Content="파일 열기"
-                VerticalAlignment="Top" Height="37" Click="FileOpenClick" RenderTransformOrigin="-0.4,0.413" Margin="625,10,34.6,0"/>
-        <Button x:Name="Stop_Button" Content="■"
-                Margin="465,0,253.6,20.4" 
-                VerticalAlignment="Bottom" Width="75" Height="55"  RenderTransformOrigin="1.106,0.464" Click="Stop_Button_Click"/>
-        <Button x:Name="Play_Button" Content="▶"
-                HorizontalAlignment="Center" Margin="357,0,361.6,20.4" 
-                VerticalAlignment="Bottom" Width="75" Height="55" Click="Play_Button_Click" RenderTransformOrigin="-0.573,0.434"/>
-        <Button x:Name="Pause_Button" Content="∥"
-                HorizontalAlignment="Center" Margin="251,0,467.6,20.4" 
-                VerticalAlignment="Bottom" Width="75" Height="55" Click="Pause_Button_Click"/>
-        <Button x:Name="Foward_Button" Content="◀◀"
-                HorizontalAlignment="Center" Margin="149,0,569.6,20.4" 
-                VerticalAlignment="Bottom" Width="75" Height="55" />
-        <Button x:Name="Backward_Button" Content="▶▶"
-                HorizontalAlignment="Center" Margin="563,0,155.6,20.4" 
-                VerticalAlignment="Bottom" Width="75" Height="55"/>
-        <Label x:Name="start_Time" Content="00:00:00" HorizontalAlignment="Left" Margin="0,471,0,0" VerticalAlignment="Top" Width="61" Height="31"/>
-        <ProgressBar x:Name="progressBar" HorizontalAlignment="Left" Height="14" Margin="52,476,0,0" VerticalAlignment="Top" Width="683"/>
-        <Label x:Name="finish_Time" Content="00:00:00" HorizontalAlignment="Left" Margin="733,472,-0.4,0" VerticalAlignment="Top" Width="61" Height="31" RenderTransformOrigin="12.346,0.981"/>
-        <Button x:Name="Speed_Button" Content="배속 설정"
-            HorizontalAlignment="Center" Margin="679,0,58.6,40.4" 
-            VerticalAlignment="Bottom" Width="56" Height="27" >
-            <Button.ContextMenu>
-                <ContextMenu x:Name="contextMenu" >
-                    <MenuItem x:Name ="speed_Btn1" Header="0.5" Click="Speed_Button_Click"/>
-                    <MenuItem x:Name ="speed_Btn2" Header="0.75" Click="Speed_Button_Click"/>
-                    <MenuItem x:Name ="speed_Btn3" Header="1.0" Click="Speed_Button_Click"/>
-                    <MenuItem x:Name ="speed_Btn4" Header="1.25" Click="Speed_Button_Click" />
-                    <MenuItem x:Name ="speed_Btn5" Header="1.5" Click="Speed_Button_Click"/>
-                    <MenuItem x:Name ="speed_Btn6" Header="2.0" Click="Speed_Button_Click"/>
-                </ContextMenu>
-            </Button.ContextMenu>
-        </Button>
-      
+            <Image x:Name="image" HorizontalAlignment="Left"
+                    Height="401" Margin="10,70,0,0" VerticalAlignment="Top" Width="387" Visibility="Visible"/>
+        </ContentControl>
+        <ContentControl MouseDoubleClick="ContentControl_MouseDoubleClick_2">
+            <Image x:Name="Dimage" HorizontalAlignment="Left"
+                    Height="401" Margin="396.6,70,0,0" VerticalAlignment="Top" Width="387" Visibility="Visible"/>
+        </ContentControl>
+        <Grid VerticalAlignment="Bottom" HorizontalAlignment="left" ShowGridLines="True" Width="800" Height="50">
+
+            <Button x:Name="Play_Button" Content="▶"
+                HorizontalAlignment="left" Margin="10,8,0,12"
+                VerticalAlignment="Center" Width="45" Height="30" Click="Play_Button_Click"/>
+            <Label x:Name="start_Time" Content="00:00:00" HorizontalAlignment="Left" VerticalAlignment="Center" Width="61" Height="31" Margin="60,9,0,10"/>
+            <Slider x:Name="progressBar" HorizontalAlignment="Left" Height="26" Margin="120,0,0,0" VerticalAlignment="Center" Width="600" Grid.ColumnSpan="2"/>
+            <Label x:Name="finish_Time" Content="00:00:00" HorizontalAlignment="Right" Margin="0,9,10,10" VerticalAlignment="Center" Width="61" Height="31" Grid.Column="1"/>
+        </Grid>
 
     </Grid>
+
 
 </Window>

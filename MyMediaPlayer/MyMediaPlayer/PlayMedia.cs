@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -10,7 +11,10 @@ namespace MyMediaPlayer
 {
     public unsafe class PlayMedia
     {
-        private Thread thread;
+        private Thread decodeThread;
+        System.Windows.Threading.DispatcherTimer dispatcherTimer;
+        private SDLAudio sdlAudio;
+        private List<Bitmap> bitmaps = new List<Bitmap>();
         public long entirePlayTime { get; set; }
 
         public enum State
@@ -45,7 +49,6 @@ namespace MyMediaPlayer
         int out_channel_nb;
         int framegap;
 
-        SDLAudio sdlAudio;
         System.Windows.Controls.Image image;    
 
         public int Init(string fileName, System.Windows.Controls.Image image)
@@ -167,8 +170,7 @@ namespace MyMediaPlayer
 
         public unsafe int RunMedia()
         {
-            state = State.Run;
-            thread = Thread.CurrentThread;
+            decodeThread = Thread.CurrentThread;
             int ret;
             byte* out_audio_buffer = out_buffer_audio;
 
@@ -235,6 +237,7 @@ namespace MyMediaPlayer
 
                             BitmapToImageSource(bitmap);
                             Thread.Sleep(33);
+                            //lock (this) { bitmaps.Add(bitmap); }
                         } while (true);
                     }
                     if (packet->stream_index == audioindex)
@@ -268,7 +271,7 @@ namespace MyMediaPlayer
 
         public void Start()
         {
-            thread = new Thread(() =>
+            decodeThread = new Thread(() =>
             {
                 try
                 {
@@ -279,8 +282,15 @@ namespace MyMediaPlayer
                     Console.WriteLine(e);
                 }
             });
-            thread.IsBackground = true;
-            thread.Start();
+            decodeThread.IsBackground = true;
+            decodeThread.Start();         
+
+            /*dispatcherTimer = new System.Windows.Threading.DispatcherTimer();
+            dispatcherTimer.Tick += new EventHandler(VideoTask);
+            dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 333);
+            dispatcherTimer.Start();*/
+
+            state = State.Run;
         }
 
         public void GoOn()
@@ -304,7 +314,7 @@ namespace MyMediaPlayer
             {
                 using (MemoryStream memory = new MemoryStream())
                 {
-                    if (thread.IsAlive)
+                    if (decodeThread.IsAlive)
                     {
                         bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
                         memory.Position = 0;
@@ -319,6 +329,15 @@ namespace MyMediaPlayer
                     }
                 }
             }));
+        }
+
+        private void VideoTask(object sender, EventArgs e)
+        {
+            if (bitmaps.Count > 0 && state == State.Run)
+            {
+                BitmapToImageSource(bitmaps[0]);
+                lock (this) { bitmaps.RemoveAt(0); }             
+            }
         }
     }
 }

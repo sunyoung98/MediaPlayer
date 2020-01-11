@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using SDL2;
 using FFmpeg.AutoGen;
@@ -53,9 +50,6 @@ namespace MyMediaPlayer
                     ((byte*)stream)[i] = 0;
             }
             data.RemoveAt(0);
-
-
-
         }
         public int SDL_Init(AVCodecContext* audioCtx)
         {
@@ -68,7 +62,6 @@ namespace MyMediaPlayer
             wanted_spec.silence = 0;
             wanted_spec.samples = 1024;
             wanted_spec.callback = Callback;
-
 
             if (SDL.SDL_OpenAudio(ref wanted_spec, IntPtr.Zero) < 0)
             {
