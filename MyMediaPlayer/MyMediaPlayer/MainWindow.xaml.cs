@@ -37,21 +37,15 @@ namespace MyMediaPlayer
         VideoFrameConverter vfc;
         AudioFrameConverter afc;
 
-        SDLAudio sdlAudio;
-        JT1078CodecForMp4 jt1078CodecForMp4;
+        PlayMedia playMedia;
 
-       
-
-       
         public MainWindow()
         {
             InitializeComponent();
 
             BinariesHelper.RegisterFFmpegBinaries();
             videoThread = new Thread(new ThreadStart(PlayingMedia));
-            sdlAudio = new SDLAudio();
-            jt1078CodecForMp4 = new JT1078CodecForMp4();
-            sdlAudio.SDL_Init();
+            playMedia = new PlayMedia();
         }
         private unsafe void AudioTask(AVCodecContext* acodecContext)
         {
@@ -67,7 +61,7 @@ namespace MyMediaPlayer
 
                     int out_channel_nb = ffmpeg.av_get_channel_layout_nb_channels((ulong)ffmpeg.AV_CH_LAYOUT_STEREO);
                     int out_buffer_size_audio = ffmpeg.av_samples_get_buffer_size(null, out_channel_nb, frame.nb_samples, AVSampleFormat.AV_SAMPLE_FMT_S16, 1);
-                    sdlAudio.PlayAudio((IntPtr)pktbuf, out_buffer_size_audio);
+                    //sdlAudio.PlayAudio((IntPtr)pktbuf, out_buffer_size_audio);
                 }
             }
         }
@@ -138,8 +132,9 @@ namespace MyMediaPlayer
                     image.Visibility = Visibility.Visible;
                     screen.Visibility = Visibility.Hidden;
                 }));
-                videoThread.Start();
-                jt1078CodecForMp4.Start(videoFile, sdlAudio);
+                //videoThread.Start();
+                playMedia.Init(videoFile, image);
+                playMedia.Start();
             }
             else if(videoThread.ThreadState==System.Threading.ThreadState.Suspended)
             {
