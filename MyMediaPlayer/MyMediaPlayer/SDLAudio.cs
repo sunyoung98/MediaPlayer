@@ -11,13 +11,13 @@ namespace MyMediaPlayer
 {
     public unsafe class SDLAudio
     {
-        class aa
+        class Data
         {
             public byte[] pcm;
             public int len;
         }
 
-        private List<aa> data = new List<aa>();
+        private List<Data> data = new List<Data>();
 
         SDL.SDL_AudioCallback Callback;
         public void PlayAudio(IntPtr pcm, int len)
@@ -26,7 +26,7 @@ namespace MyMediaPlayer
             {
                 byte[] bts = new byte[len];
                 Marshal.Copy(pcm, bts, 0, len);
-                data.Add(new aa
+                data.Add(new Data
                 {
                     len = len,
                     pcm = bts

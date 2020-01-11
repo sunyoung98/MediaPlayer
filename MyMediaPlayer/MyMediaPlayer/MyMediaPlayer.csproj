@@ -60,7 +60,6 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="FFmpeg\JT1078CodecForMp4.cs" />
     <Compile Include="PlayMedia.cs" />
     <Compile Include="SDL2\SDL2.cs" />
     <Compile Include="SDL2\SDL2_image.cs" />
@@ -76,11 +75,7 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="FFmpeg\AudioFrameConverter.cs" />
     <Compile Include="FFmpeg\BinariesHelper.cs" />
-    <Compile Include="FFmpeg\Helper.cs" />
-    <Compile Include="FFmpeg\StreamDecoder.cs" />
-    <Compile Include="FFmpeg\VideoFrameConverter.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>

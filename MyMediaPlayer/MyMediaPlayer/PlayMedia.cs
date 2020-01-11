@@ -1,11 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.IO;
 using System.Windows.Media.Imaging;
 using FFmpeg.AutoGen;
@@ -14,12 +10,19 @@ namespace MyMediaPlayer
 {
     public unsafe class PlayMedia
     {
-        public bool IsRun { get; protected set; }
         private Thread thread;
-        private bool exit_thread = false;
-        private bool pause_thread = false;
-        private bool isInit = false;
-        private int error;
+        public long entirePlayTime { get; set; }
+
+        public enum State
+        {
+            None,
+            Init,
+            Run,
+            Pause,
+            Stop
+        }
+
+        public State state = State.None;
 
         AVFormatContext* ofmt_ctx = null;
         AVPacket* packet;
@@ -43,7 +46,7 @@ namespace MyMediaPlayer
         int framegap;
 
         SDLAudio sdlAudio;
-        System.Windows.Controls.Image image;
+        System.Windows.Controls.Image image;    
 
         public int Init(string fileName, System.Windows.Controls.Image image)
         {         
@@ -156,16 +159,15 @@ namespace MyMediaPlayer
 
             packet = (AVPacket*)ffmpeg.av_malloc((ulong)(sizeof(AVPacket)));
             this.image = image;
-            isInit = true;
+            state = State.Init;
+            entirePlayTime = ofmt_ctx->duration;
 
             return 0;
         }
 
         public unsafe int RunMedia()
         {
-            IsRun = true;
-            exit_thread = false;
-            pause_thread = false;
+            state = State.Run;
             thread = Thread.CurrentThread;
             int ret;
             byte* out_audio_buffer = out_buffer_audio;
@@ -188,13 +190,13 @@ namespace MyMediaPlayer
             {
                 while (ffmpeg.av_read_frame(ofmt_ctx, packet) == 0)
                 {
-                    if (exit_thread)
+                    if (state == State.Stop)
                     {
                         break;
                     }
-                    if (pause_thread)
+                    if (state == State.Pause)
                     {
-                        while (pause_thread)
+                        while (state == State.Pause)
                         {
                             Thread.Sleep(100);
                         }
@@ -255,12 +257,12 @@ namespace MyMediaPlayer
                 ffmpeg.av_frame_unref(pFrame_Video);
                 ffmpeg.av_frame_unref(frame_Audio);             
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                Console.WriteLine(ex);
+                Console.WriteLine(e);
             }
             
-            IsRun = false;
+            state = State.Stop;
             return 0;
         }
 
@@ -270,28 +272,30 @@ namespace MyMediaPlayer
             {
                 try
                 {
-                    RunMedia();                   
+                    RunMedia();
                 }
-                catch (Exception ex)
+                catch (Exception e)
                 {
-
+                    Console.WriteLine(e);
                 }
             });
             thread.IsBackground = true;
             thread.Start();
         }
+
         public void GoOn()
         {
-            pause_thread = false;
-
+            state = State.Run;
         }
+
         public void Pause()
         {
-            pause_thread = true;
+            state = State.Pause;
         }
+
         public void Stop()
         {
-            exit_thread = true;
+            state = State.Stop;
         }
 
         public void BitmapToImageSource(Bitmap bitmap)
