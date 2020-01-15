@@ -75,7 +75,6 @@ D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\MyMediaPlayer.exe
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\MyMediaPlayer.pdb
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\FFmpeg.AutoGen.dll
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\FFmpeg.AutoGen.xml
-D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\MyMediaPlayer.csprojAssemblyReference.cache
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\MainWindow.g.cs
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\App.g.cs
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\MyMediaPlayer_Content.g.cs
@@ -88,3 +87,4 @@ D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\MyMediaPlayer.csproj.Genera
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\MyMediaPlayer.csproj.CopyComplete
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\MyMediaPlayer.exe
 D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\MyMediaPlayer.pdb
+D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\MyMediaPlayer.csprojAssemblyReference.cache

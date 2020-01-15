@@ -23,7 +23,7 @@ namespace MyMediaPlayer
 
             BinariesHelper.RegisterFFmpegBinaries();
             playMedia = new PlayMedia();
-            playDMedia = new PlayMedia();
+            //playDMedia = new PlayMedia();
         }
 
         private void TimeCheck(){
@@ -47,7 +47,7 @@ namespace MyMediaPlayer
                     videoFile = dlg.FileName;
                 }
                 playMedia.Init(videoFile, image);
-                playDMedia.Init(videoFile, Dimage);
+                //playDMedia.Init(videoFile, Dimage);
                 fullTime = playMedia.entirePlayTime / AV_TIME_BASE;
                 finishTime = fullTime;
                 finish_Time.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new UpdateUI(TimeCheck));
@@ -56,25 +56,25 @@ namespace MyMediaPlayer
             if (playMedia.state == PlayMedia.State.Init)
             {
                 playMedia.Start();
-                playDMedia.Start();
+                //playDMedia.Start();
 
             }
             else if (playMedia.state == PlayMedia.State.Run)
             {
                 playMedia.Pause();
-                playDMedia.Pause();
+                //playDMedia.Pause();
             }
             else if (playMedia.state == PlayMedia.State.Pause)
             {
                 playMedia.GoOn();
-                playDMedia.GoOn();
+                //playDMedia.GoOn();
             }
         }
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             playMedia.Stop();
-            playDMedia.Stop();
+            //playDMedia.Stop();
         }
 
         private void ContentControl_MouseDoubleClick_1(object sender, System.Windows.Input.MouseButtonEventArgs e)
