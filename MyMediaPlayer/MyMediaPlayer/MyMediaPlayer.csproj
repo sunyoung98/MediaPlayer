@@ -65,7 +65,6 @@
     <Compile Include="SDL2\SDL2_image.cs" />
     <Compile Include="SDL2\SDL2_mixer.cs" />
     <Compile Include="SDL2\SDL2_ttf.cs" />
-    <Compile Include="SDL2\SDLAudio.cs" />
     <Compile Include="SDLAudio.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>

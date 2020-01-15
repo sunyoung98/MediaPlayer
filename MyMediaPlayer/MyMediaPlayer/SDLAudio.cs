@@ -72,5 +72,15 @@ namespace MyMediaPlayer
             SDL.SDL_PauseAudio(0);
             return 0;
         }
+
+        public void SDL_Pause()
+        {
+            SDL.SDL_PauseAudio(1);
+        }
+
+        public void SDL_Play()
+        {
+            SDL.SDL_PauseAudio(0);
+        }
     }
 }

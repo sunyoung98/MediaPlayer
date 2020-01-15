@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.IO;
 using System.Windows.Media.Imaging;
@@ -11,267 +9,496 @@ namespace MyMediaPlayer
 {
     public unsafe class PlayMedia
     {
-        private Thread decodeThread;
-        System.Windows.Threading.DispatcherTimer dispatcherTimer;
-        private SDLAudio sdlAudio;
-        private List<Bitmap> bitmaps = new List<Bitmap>();
-        public long entirePlayTime { get; set; }
-
         public enum State
         {
             None,
             Init,
             Run,
             Pause,
-            Stop
-        }
+            Stop,
+        }           
+
+        private Thread thread;
+        private SDLAudio sdlAudio;
+        private PacketPool videoPool, audioPool;
+        private FrameBuffer fPool;
 
         public State state = State.None;
+        private System.Windows.Size frameSize;
+        private System.Windows.Controls.Image image;
 
-        AVFormatContext* ofmt_ctx = null;
-        AVPacket* packet;
+        private AVFormatContext* pFormatCtx = null;
 
-        AVCodecContext* pCodecCtx_Video;
-        AVCodec* pCodec_Video;
-        AVFrame* pFrame_Video;
-        SwsContext* swsCtx_Video;
-        System.Windows.Size frameSize;
+        private AVCodecContext* pCodecCtxVideo;
+        private AVCodec* pCodecVideo;
+        private AVFrame* pFrameVideo;
+        private SwsContext*[] swsCtxVideo;
 
-        AVCodecContext* pCodeCtx_Audio;
-        AVCodec* pCodec_Audio;
-        AVFrame* frame_Audio;
-        SwrContext* swrCtx_Audio;
+        private AVCodecContext* pCodeCtxAudio;
+        private AVCodec* pCodecAudio;
+        private AVFrame* pFrameAudio;
+        private SwrContext* swrCtxAudio;
         
-        private int videoindex = -1;
-        private int audioindex = -1;
+        private int videoIndex = -1;
+        private int audioIndex = -1;
 
-        byte* out_buffer_audio;
-        int out_channel_nb;
-        int framegap;
+        private const int scalerNum = 4;
+        private const int rasterNum = 4;
+        private int scalerId;
+        private int frameGap;
+        private bool isEOF;
 
-        System.Windows.Controls.Image image;    
+        public long entirePlayTime { get; set; }
 
         public int Init(string fileName, System.Windows.Controls.Image image)
         {         
             ffmpeg.avcodec_register_all();
 
-            AVFormatContext* ofmt_ctx;
-            ofmt_ctx = ffmpeg.avformat_alloc_context();
-            this.ofmt_ctx = ofmt_ctx;
+            AVFormatContext* pFormatCtx;
+            pFormatCtx = ffmpeg.avformat_alloc_context();
+            this.pFormatCtx = pFormatCtx;
 
-            ffmpeg.avformat_open_input(&ofmt_ctx, fileName, null, null);
-            ffmpeg.avformat_find_stream_info(ofmt_ctx, null);
+            ffmpeg.avformat_open_input(&pFormatCtx, fileName, null, null);
+            ffmpeg.avformat_find_stream_info(pFormatCtx, null);
 
-            for (int i = 0; i < ofmt_ctx->nb_streams; i++)
+            for (int i = 0; i < pFormatCtx->nb_streams; i++)
             {
-                if (ofmt_ctx->streams[i]->codec->codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO)
+                if (pFormatCtx->streams[i]->codec->codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO)
                 {
-                    videoindex = i;
-                    Console.WriteLine("video.............." + videoindex);
+                    videoIndex = i;
+                    Console.WriteLine("video.............." + videoIndex);
                 }
-                if (ofmt_ctx->streams[i]->codec->codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO)
+                if (pFormatCtx->streams[i]->codec->codec_type == AVMediaType.AVMEDIA_TYPE_AUDIO)
                 {
-                    audioindex = i;
-                    Console.WriteLine("audio.............." + audioindex);
+                    audioIndex = i;
+                    Console.WriteLine("audio.............." + audioIndex);
                 }
             }
 
-            if (videoindex == -1)
+            if (videoIndex == -1)
             {
                 Console.WriteLine("Couldn't find a video stream.");
                 return -1;
             }
-            if (audioindex == -1)
+            if (audioIndex == -1)
             {
                 Console.WriteLine("Couldn't find a audio stream.");
                 return -1;
             }
 
-            if (videoindex > -1)
+            if (videoIndex > -1)
             {
-                pCodecCtx_Video = ofmt_ctx->streams[videoindex]->codec;
-                pCodec_Video = ffmpeg.avcodec_find_decoder(pCodecCtx_Video->codec_id);
+                pCodecCtxVideo = pFormatCtx->streams[videoIndex]->codec;
+                pCodecVideo = ffmpeg.avcodec_find_decoder(pCodecCtxVideo->codec_id);
 
-                if (pCodec_Video == null)
+                if (pCodecVideo == null)
                 {
                     return -1;
                 }
 
-                pCodecCtx_Video->codec_id = pCodec_Video->id;
-                pCodecCtx_Video->lowres = 0;
+                pCodecCtxVideo->codec_id = pCodecVideo->id;
+                pCodecCtxVideo->lowres = 0;
 
-                if (pCodecCtx_Video->lowres > pCodec_Video->max_lowres)
-                    pCodecCtx_Video->lowres = pCodec_Video->max_lowres;
+                if (pCodecCtxVideo->lowres > pCodecVideo->max_lowres)
+                    pCodecCtxVideo->lowres = pCodecVideo->max_lowres;
 
-                pCodecCtx_Video->idct_algo = ffmpeg.FF_IDCT_AUTO;
-                pCodecCtx_Video->error_concealment = 3;
+                pCodecCtxVideo->idct_algo = ffmpeg.FF_IDCT_AUTO;
+                pCodecCtxVideo->error_concealment = 3;
 
-                if (ffmpeg.avcodec_open2(pCodecCtx_Video, pCodec_Video, null) < 0)
+                if (ffmpeg.avcodec_open2(pCodecCtxVideo, pCodecVideo, null) < 0)
                 {
                     return -1;
                 }
-                Console.WriteLine("Find a video stream. channel = " + videoindex);
+                Console.WriteLine("Find a video stream. channel = " + videoIndex);
 
-                frameSize = new System.Windows.Size(pCodecCtx_Video->width, pCodecCtx_Video->height);
-                double framerate = ffmpeg.av_q2d(ofmt_ctx->streams[videoindex]->r_frame_rate);
-                framegap = (int)(1000 / framerate);
+                frameSize = new System.Windows.Size(pCodecCtxVideo->width, pCodecCtxVideo->height);
+                double frameRate = ffmpeg.av_q2d(pFormatCtx->streams[videoIndex]->r_frame_rate);
+                frameGap = (int)(1000 / frameRate);
 
-                pFrame_Video = ffmpeg.av_frame_alloc();
-                swsCtx_Video = ffmpeg.sws_getContext(
-                (int)frameSize.Width,
-                (int)frameSize.Height,
-                pCodecCtx_Video->pix_fmt,
-                (int)frameSize.Width,
-                (int)frameSize.Height,
-                AVPixelFormat.AV_PIX_FMT_BGR24,
-                ffmpeg.SWS_FAST_BILINEAR, null, null, null);
+                pFrameVideo = ffmpeg.av_frame_alloc();
+                swsCtxVideo = new SwsContext*[4];
+                for (int i = 0; i < scalerNum; i++)
+                {
+                    swsCtxVideo[i] = ffmpeg.sws_getContext(
+                        (int)frameSize.Width,
+                        (int)frameSize.Height,
+                        pCodecCtxVideo->pix_fmt,
+                        (int)frameSize.Width,
+                        (int)frameSize.Height,
+                        AVPixelFormat.AV_PIX_FMT_BGR24,
+                        ffmpeg.SWS_FAST_BILINEAR, null, null, null);
+                }                        
             }
-            if (audioindex > -1)
+            if (audioIndex > -1)
             {
-                pCodec_Audio = ffmpeg.avcodec_find_decoder(ofmt_ctx->streams[audioindex]->codecpar->codec_id);
-                pCodeCtx_Audio = ffmpeg.avcodec_alloc_context3(pCodec_Audio);
-                ffmpeg.avcodec_parameters_to_context(pCodeCtx_Audio, ofmt_ctx->streams[audioindex]->codecpar);
+                pCodecAudio = ffmpeg.avcodec_find_decoder(pFormatCtx->streams[audioIndex]->codecpar->codec_id);
+                pCodeCtxAudio = ffmpeg.avcodec_alloc_context3(pCodecAudio);
+                ffmpeg.avcodec_parameters_to_context(pCodeCtxAudio, pFormatCtx->streams[audioIndex]->codecpar);
 
-                if (pCodec_Audio == null)
+                if (pCodecAudio == null)
                 {
                     return -1;
                 }
-                if (ffmpeg.avcodec_open2(pCodeCtx_Audio, pCodec_Audio, null) < 0)
+                if (ffmpeg.avcodec_open2(pCodeCtxAudio, pCodecAudio, null) < 0)
                 {
                     return -1;
                 }
-                Console.WriteLine("Find a audio stream. channel = " + audioindex);
+                Console.WriteLine("Find a audio stream. channel = " + audioIndex);
 
                 sdlAudio = new SDLAudio();
-                sdlAudio.SDL_Init(pCodeCtx_Audio);
+                sdlAudio.SDL_Init(pCodeCtxAudio);
 
-                frame_Audio = ffmpeg.av_frame_alloc();
-                swrCtx_Audio = ffmpeg.swr_alloc();
+                pFrameAudio = ffmpeg.av_frame_alloc();
+                swrCtxAudio = ffmpeg.swr_alloc();
 
-                ffmpeg.av_opt_set_channel_layout(swrCtx_Audio, "in_channel_layout", (long)pCodeCtx_Audio->channel_layout, 0);
-                ffmpeg.av_opt_set_channel_layout(swrCtx_Audio, "out_channel_layout", (long)pCodeCtx_Audio->channel_layout, 0);
-                ffmpeg.av_opt_set_int(swrCtx_Audio, "in_sample_rate", pCodeCtx_Audio->sample_rate, 0);
-                ffmpeg.av_opt_set_int(swrCtx_Audio, "out_sample_rate", pCodeCtx_Audio->sample_rate, 0);
-                ffmpeg.av_opt_set_sample_fmt(swrCtx_Audio, "in_sample_fmt", pCodeCtx_Audio->sample_fmt, 0);
-                ffmpeg.av_opt_set_sample_fmt(swrCtx_Audio, "out_sample_fmt", AVSampleFormat.AV_SAMPLE_FMT_FLT, 0);
-                ffmpeg.swr_init(swrCtx_Audio);
-
-                out_channel_nb = pCodeCtx_Audio->channels;
-                out_buffer_audio = (byte*)ffmpeg.av_malloc((192000 * 3) / 2);              
+                ffmpeg.av_opt_set_channel_layout(swrCtxAudio, "in_channel_layout", (long)pCodeCtxAudio->channel_layout, 0);
+                ffmpeg.av_opt_set_channel_layout(swrCtxAudio, "out_channel_layout", (long)pCodeCtxAudio->channel_layout, 0);
+                ffmpeg.av_opt_set_int(swrCtxAudio, "in_sample_rate", pCodeCtxAudio->sample_rate, 0);
+                ffmpeg.av_opt_set_int(swrCtxAudio, "out_sample_rate", pCodeCtxAudio->sample_rate, 0);
+                ffmpeg.av_opt_set_sample_fmt(swrCtxAudio, "in_sample_fmt", pCodeCtxAudio->sample_fmt, 0);
+                ffmpeg.av_opt_set_sample_fmt(swrCtxAudio, "out_sample_fmt", AVSampleFormat.AV_SAMPLE_FMT_FLT, 0);
+                ffmpeg.swr_init(swrCtxAudio);       
             }
 
-            packet = (AVPacket*)ffmpeg.av_malloc((ulong)(sizeof(AVPacket)));
             this.image = image;
-            state = State.Init;
-            entirePlayTime = ofmt_ctx->duration;
+            entirePlayTime = pFormatCtx->duration;
+
+            scalerId = 0;
+
+            videoPool = new PacketPool();
+            audioPool = new PacketPool();
+            fPool = new FrameBuffer(frameSize);
+
+            isEOF = false;
+            state = State.Init;         
 
             return 0;
         }
 
-        public unsafe int RunMedia()
+        private unsafe int RunMedia()
         {
-            decodeThread = Thread.CurrentThread;
-            int ret;
-            byte* out_audio_buffer = out_buffer_audio;
+            AVPacket* packet;
+            packet = (AVPacket*)ffmpeg.av_malloc((ulong)(sizeof(AVPacket)));
 
-            var convertedFrameBufferSize = ffmpeg.av_image_get_buffer_size(AVPixelFormat.AV_PIX_FMT_BGR24,
-                (int)frameSize.Width, (int)frameSize.Height, 1);
-            IntPtr _convertedFrameBufferPtr = Marshal.AllocHGlobal(convertedFrameBufferSize);
-            byte_ptrArray4 _dstData = new byte_ptrArray4();
-            int_array4 _dstLinesize = new int_array4();
+            Thread videoDecodeTask = new Thread(new ThreadStart(VideoDecodeTask));
+            Thread audioDecodeTask = new Thread(new ThreadStart(AudioDecodeTask));
 
-            ffmpeg.av_image_fill_arrays(
-                ref _dstData,
-                ref _dstLinesize,
-                (byte*)_convertedFrameBufferPtr,
-                AVPixelFormat.AV_PIX_FMT_BGR24,
-                (int)frameSize.Width,
-                (int)frameSize.Height, 1);
+            videoDecodeTask.Start();
+            audioDecodeTask.Start();       
 
             try
             {
-                while (ffmpeg.av_read_frame(ofmt_ctx, packet) == 0)
-                {
+                while (ffmpeg.av_read_frame(pFormatCtx, packet) == 0)
+                {                                     
+                    while (videoPool.isFull() || audioPool.isFull())
+                    {
+                        if (state == State.Stop)
+                        {
+                            break;
+                        }
+                        Thread.Sleep(20);
+                    }
                     if (state == State.Stop)
                     {
                         break;
                     }
-                    if (state == State.Pause)
+                    if (packet->stream_index == videoIndex)
                     {
-                        while (state == State.Pause)
-                        {
-                            Thread.Sleep(100);
-                        }
+                        videoPool.putPacket(*packet);                                             
                     }
-                    if (packet->stream_index == videoindex)
+                    if (packet->stream_index == audioIndex)
                     {
-                        ret = ffmpeg.avcodec_send_packet(pCodecCtx_Video, packet);
-                        if (ret != 0) { continue; }
-                        do
-                        {
-                            ret = ffmpeg.avcodec_receive_frame(pCodecCtx_Video, pFrame_Video);
-                            if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN)) break;                        
-        
-                            ffmpeg.sws_scale(swsCtx_Video,
-                                pFrame_Video->data, pFrame_Video->linesize, 0, pFrame_Video->height, _dstData, _dstLinesize);                                       
-
-                            var data = new byte_ptrArray8();
-                            data.UpdateFrom(_dstData);
-                            var linesize = new int_array8();
-                            linesize.UpdateFrom(_dstLinesize);
-
-                            AVFrame frame_converted = new AVFrame
-                            {
-                                data = data,
-                                linesize = linesize,
-                                width = (int)frameSize.Width,
-                                height = (int)frameSize.Height
-                            };
-
-                            Bitmap bitmap = new Bitmap(
-                                frame_converted.width,
-                                frame_converted.height,
-                                frame_converted.linesize[0],
-                                System.Drawing.Imaging.PixelFormat.Format24bppRgb,
-                                (IntPtr)frame_converted.data[0]);
-
-                            BitmapToImageSource(bitmap);
-                            Thread.Sleep(33);
-                            //lock (this) { bitmaps.Add(bitmap); }
-                        } while (true);
-                    }
-                    if (packet->stream_index == audioindex)
-                    {
-                        ret = ffmpeg.avcodec_send_packet(pCodeCtx_Audio, packet);
-                        if (ret != 0) continue;
-                        do
-                        {
-                            ret = ffmpeg.avcodec_receive_frame(pCodeCtx_Audio, frame_Audio);
-                            if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN)) break;
-                            
-                            ffmpeg.swr_convert(swrCtx_Audio, &out_audio_buffer, frame_Audio->nb_samples, (byte**)&frame_Audio->data, frame_Audio->nb_samples);
-                            int out_buffer_size_audio = ffmpeg.av_samples_get_buffer_size(null, out_channel_nb, frame_Audio->nb_samples, AVSampleFormat.AV_SAMPLE_FMT_FLT, 1);
-                            var data = out_audio_buffer;
-                            sdlAudio.PlayAudio((IntPtr)data, out_buffer_size_audio);
-                        } while (true);
-                    }
-                    ffmpeg.av_packet_unref(packet);
-                }
-                ffmpeg.av_frame_unref(pFrame_Video);
-                ffmpeg.av_frame_unref(frame_Audio);             
+                        audioPool.putPacket(*packet);
+                    }                 
+                }              
             }
             catch (Exception e)
             {
                 Console.WriteLine(e);
             }
-            
+
+            isEOF = true;
+
+            videoDecodeTask.Join();
+            audioDecodeTask.Join();
+
             state = State.Stop;
             return 0;
         }
 
+        private unsafe void VideoDecodeTask()
+        {
+            AVPacket packet;
+            int ret;
+
+            Thread[] videoScaleTask = new Thread[scalerNum];
+            for (int i = 0; i < scalerNum; i++)
+            {
+                videoScaleTask[i] = new Thread(new ThreadStart(VideoScaleTask));
+                videoScaleTask[i].Start();
+            }
+            Thread[] videoRasterTask = new Thread[rasterNum];
+            for (int i = 0; i < rasterNum; i++)
+            {
+                videoRasterTask[i] = new Thread(new ThreadStart(VideoRasterTask));
+                videoRasterTask[i].Start();
+            }
+            Thread videoDrawTask = new Thread(new ThreadStart(VideoDrawTask));
+            videoDrawTask.Start();        
+
+            try
+            {
+                while (true)
+                {
+                    if (state == State.Stop)
+                    {
+                        break;
+                    }
+                    if (videoPool.isEmpty())
+                    {
+                        if (isEOF == true) break;
+                        Thread.Sleep(20);
+                        continue;
+                    }
+
+                    packet = videoPool.getPacket();
+                    ret = ffmpeg.avcodec_send_packet(pCodecCtxVideo, &packet);
+                    if (ret != 0) { continue; }
+                    do
+                    {
+                        ret = ffmpeg.avcodec_receive_frame(pCodecCtxVideo, pFrameVideo);
+                        if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN)) break;
+
+                        while (true)
+                        {
+                            if (state == State.Stop) break;
+                            if (fPool.status[fPool.fPut] == FrameBuffer.eFrameStatus.F_EMPTY || fPool.status[fPool.fPut] == FrameBuffer.eFrameStatus.F_DRAW)
+                            {
+                                break;
+                            }
+                            Thread.Sleep(20);
+                        }
+
+                        if (state == State.Stop)
+                        {
+                            ffmpeg.av_packet_unref(&packet);
+                            ffmpeg.av_frame_unref(pFrameVideo);
+                            break;
+                        }
+
+                        AVFrame* tFrame = ffmpeg.av_frame_clone(pFrameVideo);
+                        fPool.vFrame[fPool.fPut] = *tFrame;
+                        fPool.status[fPool.fPut] = FrameBuffer.eFrameStatus.F_FRAME;
+
+                        if (++fPool.fPut == fPool.fSize) fPool.fPut = 0;
+
+                    } while (true);
+                    ffmpeg.av_packet_unref(&packet);
+                }           
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+
+            for (int i = 0; i < scalerNum; i++)
+            {
+                videoScaleTask[i].Join();
+            }
+            for (int i = 0; i < rasterNum; i++)
+            {
+                videoRasterTask[i].Join();
+            }
+            videoDrawTask.Join();
+
+            videoPool.clear();
+            ffmpeg.av_frame_unref(pFrameVideo);        
+        }
+
+        private unsafe void VideoScaleTask()
+        {
+            AVFrame vFrame;
+            int scalerNum = scalerId;
+            int scalePos;
+            lock (this) { scalerId++; }
+
+            while (true)
+            {
+                if (state == State.Stop)
+                {
+                    break;
+                }
+
+                lock (this)
+                {
+                    scalePos = -1;
+                    for (int i = fPool.fPut, count = 0; count < fPool.fSize; i = (i + 1) % fPool.fSize, count++)
+                    {
+                        if (fPool.status[i] == FrameBuffer.eFrameStatus.F_FRAME)
+                        {
+                            fPool.status[i] = FrameBuffer.eFrameStatus.F_SCALING;
+                            scalePos = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (scalePos == -1)
+                {
+                    if (isEOF == true) break;
+                    Thread.Sleep(20);
+                    continue;
+                }
+
+                vFrame = fPool.vFrame[scalePos];
+                ffmpeg.sws_scale(swsCtxVideo[scalerNum],
+                            vFrame.data, vFrame.linesize, 0, vFrame.height, fPool._dstData[scalePos], fPool._dstLinesize[scalePos]);
+
+                var data = new byte_ptrArray8();
+                data.UpdateFrom(fPool._dstData[scalePos]);
+                var linesize = new int_array8();
+                linesize.UpdateFrom(fPool._dstLinesize[scalePos]);
+
+                AVFrame frame_converted = new AVFrame
+                {
+                    data = data,
+                    linesize = linesize,
+                    width = (int)frameSize.Width,
+                    height = (int)frameSize.Height
+                };
+
+                fPool.RGBFrame[scalePos] = frame_converted;                   
+
+                ffmpeg.av_frame_unref(&vFrame);
+                fPool.status[scalePos] = FrameBuffer.eFrameStatus.F_SCALE;
+            }
+        }
+
+        private unsafe void VideoRasterTask()
+        {
+            int rastPos;
+
+            while (true)
+            {
+                if (state == State.Stop)
+                {
+                    break;
+                }
+
+                lock (this)
+                {
+                    rastPos = -1;
+                    for (int i = fPool.fPut, count = 0; count < fPool.fSize; i = (i + 1) % fPool.fSize, count++)
+                    {
+                        if (fPool.status[i] == FrameBuffer.eFrameStatus.F_SCALE)
+                        {
+                            fPool.status[i] = FrameBuffer.eFrameStatus.F_RASTERING;
+                            rastPos = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (rastPos == -1)
+                {
+                    if (isEOF == true) break;
+                    Thread.Sleep(20);
+                    continue;
+                }
+
+                fPool.bitmap[rastPos] = new Bitmap(
+                            fPool.RGBFrame[rastPos].width,
+                            fPool.RGBFrame[rastPos].height,
+                            fPool.RGBFrame[rastPos].linesize[0],
+                            System.Drawing.Imaging.PixelFormat.Format24bppRgb,
+                            (IntPtr)fPool.RGBFrame[rastPos].data[0]);
+                fPool.status[rastPos] = FrameBuffer.eFrameStatus.F_RASTER;
+            }
+        }
+
+        private unsafe void VideoDrawTask()
+        {
+            int drawPos = 0;
+
+            while (true)
+            {
+                if (state == State.Stop)
+                {
+                    break;
+                }
+                if (state == State.Pause)
+                {
+                    while (state == State.Pause)
+                    {
+                        Thread.Sleep(100);
+                    }
+                }
+
+                if (fPool.status[drawPos] != FrameBuffer.eFrameStatus.F_RASTER)
+                {
+                    if (isEOF == true) break;
+                    Thread.Sleep(20);
+                    continue;
+                }
+
+                BitmapToImageSource(fPool.bitmap[drawPos]);
+                fPool.status[drawPos] = FrameBuffer.eFrameStatus.F_DRAW;   
+
+                Thread.Sleep(frameGap);
+
+                if (++drawPos == fPool.fSize) drawPos = 0;
+            }
+        }
+
+        private unsafe void AudioDecodeTask()
+        {
+            AVPacket packet;
+            int ret;
+            byte* out_audio_buffer = (byte*)ffmpeg.av_malloc((192000 * 3) / 2);
+
+            try
+            {
+                while (true)
+                {
+                    if (state == State.Stop)
+                    {
+                        break;
+                    }
+                    if (audioPool.isEmpty())
+                    {
+                        if (isEOF == true) break;
+                        Thread.Sleep(20);
+                        continue;
+                    }
+
+                    packet = audioPool.getPacket();
+                    ret = ffmpeg.avcodec_send_packet(pCodeCtxAudio, &packet);
+                    if (ret != 0) { continue; }
+                    do
+                    {
+                        ret = ffmpeg.avcodec_receive_frame(pCodeCtxAudio, pFrameAudio);
+                        if (ret == ffmpeg.AVERROR(ffmpeg.EAGAIN)) break;
+
+                        ffmpeg.swr_convert(swrCtxAudio, &out_audio_buffer, pFrameAudio->nb_samples, (byte**)&pFrameAudio->data, pFrameAudio->nb_samples);
+                        int out_buffer_size_audio = ffmpeg.av_samples_get_buffer_size(null, pCodeCtxAudio->channels, pFrameAudio->nb_samples, AVSampleFormat.AV_SAMPLE_FMT_FLT, 1);
+                        var data = out_audio_buffer;
+                        sdlAudio.PlayAudio((IntPtr)data, out_buffer_size_audio);
+                    } while (true);
+                }
+                ffmpeg.av_packet_unref(&packet);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+
+            audioPool.clear();
+            ffmpeg.av_frame_unref(pFrameAudio);
+        }
+
         public void Start()
         {
-            decodeThread = new Thread(() =>
+            thread = new Thread(() =>
             {
                 try
                 {
@@ -282,13 +509,8 @@ namespace MyMediaPlayer
                     Console.WriteLine(e);
                 }
             });
-            decodeThread.IsBackground = true;
-            decodeThread.Start();         
-
-            /*dispatcherTimer = new System.Windows.Threading.DispatcherTimer();
-            dispatcherTimer.Tick += new EventHandler(VideoTask);
-            dispatcherTimer.Interval = new TimeSpan(0, 0, 0, 0, 333);
-            dispatcherTimer.Start();*/
+            thread.IsBackground = true;
+            thread.Start();
 
             state = State.Run;
         }
@@ -296,11 +518,13 @@ namespace MyMediaPlayer
         public void GoOn()
         {
             state = State.Run;
+            sdlAudio.SDL_Play();
         }
 
         public void Pause()
         {
             state = State.Pause;
+            sdlAudio.SDL_Pause();
         }
 
         public void Stop()
@@ -308,35 +532,125 @@ namespace MyMediaPlayer
             state = State.Stop;
         }
 
-        public void BitmapToImageSource(Bitmap bitmap)
+        private void BitmapToImageSource(Bitmap bitmap)
         {
             image.Dispatcher.BeginInvoke((Action)(() =>
             {
                 using (MemoryStream memory = new MemoryStream())
                 {
-                    if (decodeThread.IsAlive)
+                    if (thread.IsAlive)
                     {
                         bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
                         memory.Position = 0;
 
-                        BitmapImage bitmapimage = new BitmapImage();
-                        bitmapimage.BeginInit();
-                        bitmapimage.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmapimage.StreamSource = memory;
-                        bitmapimage.EndInit();
+                        BitmapImage bitmapImage = new BitmapImage();
+                        bitmapImage.BeginInit();
+                        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmapImage.StreamSource = memory;
+                        bitmapImage.EndInit();
 
-                        image.Source = bitmapimage;
+                        image.Source = bitmapImage;
                     }
                 }
             }));
         }
 
-        private void VideoTask(object sender, EventArgs e)
+        private class FrameBuffer
         {
-            if (bitmaps.Count > 0 && state == State.Run)
+            public enum eFrameStatus
             {
-                BitmapToImageSource(bitmaps[0]);
-                lock (this) { bitmaps.RemoveAt(0); }             
+                F_EMPTY, F_FRAME, F_SCALING, F_SCALE,
+                F_RASTERING, F_RASTER, F_DRAW
+            };
+
+            public int fSize = 6;
+            public int fPut;
+            public int convertedFrameBufferSize;
+            public AVFrame[] vFrame;
+            public AVFrame[] RGBFrame;
+            public Bitmap[] bitmap;
+            public eFrameStatus[] status;
+            public byte_ptrArray4[] _dstData;
+            public int_array4[] _dstLinesize;
+            public IntPtr[] _convertedFrameBufferPtr;          
+
+            public FrameBuffer(System.Windows.Size frameSize)
+            {
+                vFrame = new AVFrame[fSize];
+                status = new eFrameStatus[fSize];
+                RGBFrame = new AVFrame[fSize];
+                bitmap = new Bitmap[fSize];
+                _dstData = new byte_ptrArray4[fSize];
+                _dstLinesize = new int_array4[fSize];
+                _convertedFrameBufferPtr = new IntPtr[fSize];
+
+                convertedFrameBufferSize = ffmpeg.av_image_get_buffer_size(AVPixelFormat.AV_PIX_FMT_BGR24,
+                    (int)frameSize.Width, (int)frameSize.Height, 1);
+                fPut = 0;
+            
+                for (int i = 0; i < fSize; i++)
+                {
+                    status[i] = eFrameStatus.F_EMPTY;
+                    _dstData[i] = new byte_ptrArray4();
+                    _dstLinesize[i] = new int_array4();
+                    _convertedFrameBufferPtr[i] = (IntPtr)ffmpeg.av_malloc((ulong)convertedFrameBufferSize);
+
+                    ffmpeg.av_image_fill_arrays(
+                        ref _dstData[i],
+                        ref _dstLinesize[i],
+                        (byte*)_convertedFrameBufferPtr[i],
+                        AVPixelFormat.AV_PIX_FMT_BGR24,
+                        (int)frameSize.Width,
+                        (int)frameSize.Height, 1);
+                }
+            }
+        };
+
+        private class PacketPool
+        {
+            private int pSize;
+            private AVPacket[] packetPool;
+            private int put;
+            private int get;
+
+            public PacketPool()
+            {
+                pSize = 60;
+                packetPool = new AVPacket[pSize];
+                put = 0;
+                get = 0;
+            }
+
+            public void putPacket(AVPacket packet)
+            {
+                packetPool[put++] = packet;
+                put = put % 60;
+            }
+
+            public AVPacket getPacket()
+            {
+                AVPacket packet = packetPool[get++];
+                get = get % 60;
+                return packet;
+            }
+
+            public bool isEmpty()
+            {
+                return put == get;
+            }
+
+            public bool isFull()
+            {
+                return (put + 1) % pSize == get;
+            }
+
+            public void clear()
+            {
+                for (int i = get; i != put; i = (i + 1) % pSize)
+                {
+                    AVPacket packet = packetPool[i];
+                    ffmpeg.av_packet_unref(&packet);
+                }
             }
         }
     }
