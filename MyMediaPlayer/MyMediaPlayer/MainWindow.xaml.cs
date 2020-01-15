@@ -55,17 +55,38 @@ namespace MyMediaPlayer
 
             if (playMedia.state == PlayMedia.State.Init)
             {
+                lock (Dispatcher)
+                {
+                    Dispatcher.Invoke(DispatcherPriority.Normal, new Action(delegate
+                    {
+                        Play_Button.Content = "||";
+                    }));
+                }
                 playMedia.Start();
                 //playDMedia.Start();
 
             }
             else if (playMedia.state == PlayMedia.State.Run)
             {
+                lock (Dispatcher)
+                {
+                    Dispatcher.Invoke(DispatcherPriority.Normal, new Action(delegate
+                    {
+                        Play_Button.Content = "▶";
+                    }));
+                }
                 playMedia.Pause();
                 //playDMedia.Pause();
             }
             else if (playMedia.state == PlayMedia.State.Pause)
             {
+                lock (Dispatcher)
+                {
+                    Dispatcher.Invoke(DispatcherPriority.Normal, new Action(delegate
+                    {
+                        Play_Button.Content = "||";
+                    }));
+                }
                 playMedia.GoOn();
                 //playDMedia.GoOn();
             }
