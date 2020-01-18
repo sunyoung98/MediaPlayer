@@ -4,6 +4,7 @@ using System.Threading;
 using System.IO;
 using System.Windows.Media.Imaging;
 using FFmpeg.AutoGen;
+using System.Runtime.InteropServices;
 
 namespace MyMediaPlayer
 {
@@ -47,10 +48,32 @@ namespace MyMediaPlayer
         private int scalerId;
         private int frameGap;
         private bool isEOF;
+        private long playTime;
+        private System.Windows.Controls.Label startTime;
+        private System.Windows.Controls.Slider slider;
 
         public long entirePlayTime { get; set; }
 
-        public int Init(string fileName, System.Windows.Controls.Image image)
+        [DllImport("Kernel32.dll")]
+        private static extern bool QueryPerformanceCounter(out LARGE_INTEGER lpPerformanceCount);
+
+        [DllImport("Kernel32.dll")]
+        private static extern bool QueryPerformanceFrequency(out long lpFrequency);
+
+        [StructLayout(LayoutKind.Explicit, Size = 8)]
+        struct LARGE_INTEGER
+        {
+            [FieldOffset(0)] public Int64 QuadPart;
+            [FieldOffset(0)] public UInt32 LowPart;
+            [FieldOffset(4)] public Int32 HighPart;
+        }
+        [DllImport("user32")]
+        public static extern UInt16 GetAsyncKeyState(Int32 vKey);
+
+
+
+        [Obsolete]
+        public int Init(string fileName, System.Windows.Controls.Image image, System.Windows.Controls.Label startTime, System.Windows.Controls.Slider slider)
         {         
             ffmpeg.avcodec_register_all();
 
@@ -162,6 +185,8 @@ namespace MyMediaPlayer
 
             this.image = image;
             entirePlayTime = pFormatCtx->duration;
+            this.startTime = startTime;
+            this.slider = slider;
 
             scalerId = 0;
 
@@ -418,7 +443,15 @@ namespace MyMediaPlayer
 
         private unsafe void VideoDrawTask()
         {
-            int drawPos = 0;
+            int drawpos = 0;
+            long elapse=0;
+            long delay = 0;
+            LARGE_INTEGER lastDrawTick, nowtick;
+
+            lastDrawTick.HighPart = 0;
+            lastDrawTick.LowPart = 0;
+            lastDrawTick.QuadPart = 0;
+
 
             while (true)
             {
@@ -434,19 +467,41 @@ namespace MyMediaPlayer
                     }
                 }
 
-                if (fPool.status[drawPos] != FrameBuffer.eFrameStatus.F_RASTER)
+                if (fPool.status[drawpos] != FrameBuffer.eFrameStatus.F_RASTER)
                 {
                     if (isEOF == true) break;
                     Thread.Sleep(20);
                     continue;
                 }
 
-                BitmapToImageSource(fPool.bitmap[drawPos]);
-                fPool.status[drawPos] = FrameBuffer.eFrameStatus.F_DRAW;   
+                QueryPerformanceCounter(out nowtick);
 
-                Thread.Sleep(frameGap);
 
-                if (++drawPos == fPool.fSize) drawPos = 0;
+                BitmapToImageSource(fPool.bitmap[drawpos]);
+
+                fPool.status[drawpos] = FrameBuffer.eFrameStatus.F_DRAW;
+
+                elapse = (long)(nowtick.QuadPart - lastDrawTick.QuadPart);
+                // Console.WriteLine(elapse);
+
+                if (elapse > ffmpeg.AV_TIME_BASE || elapse < 0)
+                {
+                    elapse = 0;
+                }
+
+                delay = frameGap * 100 - elapse;
+
+
+                if (delay > 0)
+                {
+                    Thread.Sleep((int)delay / 100);
+                    Console.WriteLine((int)delay / 100);
+
+                }
+                QueryPerformanceCounter(out lastDrawTick);
+
+
+                if (++drawpos == fPool.fSize) drawpos = 0;
             }
         }
 
@@ -455,7 +510,6 @@ namespace MyMediaPlayer
             AVPacket packet;
             int ret;
             byte* out_audio_buffer = (byte*)ffmpeg.av_malloc((192000 * 3) / 2);
-
             try
             {
                 while (true)
@@ -482,7 +536,17 @@ namespace MyMediaPlayer
                         ffmpeg.swr_convert(swrCtxAudio, &out_audio_buffer, pFrameAudio->nb_samples, (byte**)&pFrameAudio->data, pFrameAudio->nb_samples);
                         int out_buffer_size_audio = ffmpeg.av_samples_get_buffer_size(null, pCodeCtxAudio->channels, pFrameAudio->nb_samples, AVSampleFormat.AV_SAMPLE_FMT_FLT, 1);
                         var data = out_audio_buffer;
-                        sdlAudio.PlayAudio((IntPtr)data, out_buffer_size_audio);
+                        playTime = pFrameAudio->best_effort_timestamp/pFrameAudio->sample_rate;
+                        slider.Dispatcher.BeginInvoke((Action)(() =>
+                        {
+                            slider.Value = playTime;
+                        }));
+                        
+                        startTime.Dispatcher.BeginInvoke((Action)(() =>
+                        {
+                            startTime.Content = (playTime / 3600).ToString() + ":" + (playTime % 3600 / 60).ToString() + ":" + (playTime % 3600 % 60).ToString();
+                        }));
+                            sdlAudio.PlayAudio((IntPtr)data, out_buffer_size_audio);
                     } while (true);
                 }
                 ffmpeg.av_packet_unref(&packet);
@@ -534,25 +598,30 @@ namespace MyMediaPlayer
 
         private void BitmapToImageSource(Bitmap bitmap)
         {
-            image.Dispatcher.BeginInvoke((Action)(() =>
-            {
-                using (MemoryStream memory = new MemoryStream())
+
+                image.Dispatcher.BeginInvoke((Action)(() =>
                 {
-                    if (thread.IsAlive)
-                    {
-                        bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
-                        memory.Position = 0;
+                        image.Visibility = System.Windows.Visibility.Hidden;
+                        using (MemoryStream memory = new MemoryStream())
+                        {
+                            if (thread.IsAlive)
+                            {
+                                bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
+                                memory.Position = 0;
 
-                        BitmapImage bitmapImage = new BitmapImage();
-                        bitmapImage.BeginInit();
-                        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmapImage.StreamSource = memory;
-                        bitmapImage.EndInit();
-
-                        image.Source = bitmapImage;
-                    }
-                }
-            }));
+                                BitmapImage bitmapImage = new BitmapImage();
+                                bitmapImage.BeginInit();
+                                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                                bitmapImage.StreamSource = memory;
+                                bitmapImage.EndInit();
+                                bitmapImage.Freeze();
+                                image.Source = bitmapImage;
+                                image.Visibility = System.Windows.Visibility.Visible;
+                                memory.Dispose();
+                            }
+                            bitmap.Dispose();
+                        }
+                }));
         }
 
         private class FrameBuffer

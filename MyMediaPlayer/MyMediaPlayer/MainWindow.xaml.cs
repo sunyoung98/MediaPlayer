@@ -17,12 +17,14 @@ namespace MyMediaPlayer
 
         PlayMedia playMedia, playDMedia;
 
+
         public MainWindow()
         {
             InitializeComponent();
 
             BinariesHelper.RegisterFFmpegBinaries();
             playMedia = new PlayMedia();
+          
             //playDMedia = new PlayMedia();
         }
 
@@ -46,11 +48,16 @@ namespace MyMediaPlayer
                 {
                     videoFile = dlg.FileName;
                 }
-                playMedia.Init(videoFile, image);
+                playMedia.Init(videoFile, image, start_Time, slider);
                 //playDMedia.Init(videoFile, Dimage);
                 fullTime = playMedia.entirePlayTime / AV_TIME_BASE;
                 finishTime = fullTime;
                 finish_Time.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new UpdateUI(TimeCheck));
+                slider.Dispatcher.BeginInvoke((Action)(() =>
+                {
+                    slider.Minimum = 0;
+                    slider.Maximum = fullTime;
+                }));
             }
 
             if (playMedia.state == PlayMedia.State.Init)
