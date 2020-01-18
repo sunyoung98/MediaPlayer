@@ -5,8 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MyMediaPlayer"
         mc:Ignorable="d"
-        Title="MainWindow" Height="600" Width="800"
-        Closing="MainWindow_Closing">
+        ResizeMode="CanResizeWithGrip"
+        Title="MainWindow"  Height ="600" Width="1000"
+        Closing="MainWindow_Closing"
+        Background="Black">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
@@ -14,22 +16,33 @@
         <ContentControl MouseDoubleClick="ContentControl_MouseDoubleClick_1">
 
             <Image x:Name="image" HorizontalAlignment="Left"
-                    Height="401" Margin="10,70,0,0" VerticalAlignment="Top" Width="387" Visibility="Visible"/>
+                    Margin="5,70,0,0" VerticalAlignment="Top" Width="490" Visibility="Visible"/>
         </ContentControl>
         <ContentControl MouseDoubleClick="ContentControl_MouseDoubleClick_2">
             <Image x:Name="Dimage" HorizontalAlignment="Left"
-                    Height="401" Margin="396.6,70,0,0" VerticalAlignment="Top" Width="387" Visibility="Visible"/>
+                    Margin="500,70,0,5" VerticalAlignment="Top" Width="490" Visibility="Visible"/>
         </ContentControl>
-        <Grid VerticalAlignment="Bottom" HorizontalAlignment="left" ShowGridLines="True" Width="800" Height="50">
+        <Grid VerticalAlignment="Bottom" HorizontalAlignment="left" ShowGridLines="True" Width="1000" Height="50" >
 
-            <Button x:Name="Play_Button" Content="▶"
-                HorizontalAlignment="left" Margin="10,8,0,12"
-                VerticalAlignment="Center" Width="45" Height="30" Click="Play_Button_Click"/>
-            <Label x:Name="start_Time" Content="00:00:00" HorizontalAlignment="Left" VerticalAlignment="Center" Width="61" Height="31" Margin="60,9,0,10"/>
-            <Slider x:Name="progressBar" HorizontalAlignment="Left" Height="26" Margin="120,0,0,0" VerticalAlignment="Center" Width="600" Grid.ColumnSpan="2"/>
-            <Label x:Name="finish_Time" Content="00:00:00" HorizontalAlignment="Right" Margin="0,9,10,10" VerticalAlignment="Center" Width="61" Height="31" Grid.Column="1"/>
+            <Button x:Name="Play_Button" Content="▶" Margin="50,0,20,0"
+                    HorizontalAlignment="Left"
+                    BorderBrush="#fff"
+                    Width="35" Height="35" Click="Play_Button_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Grid>
+                            <Ellipse Fill="White"/>
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            <Grid VerticalAlignment="Bottom" HorizontalAlignment="left" ShowGridLines="True" Width="850" Height="50" Margin="100,0,0,0">
+                <Label x:Name="start_Time" Content="00:00:00" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" Width="64" Height="31" Margin="0,5,0,10"/>
+                <Slider x:Name="slider" HorizontalAlignment="Left" Height="26" Margin="81,0,10,0" VerticalAlignment="Center" Width="670" Grid.ColumnSpan="2"/>
+                <Label x:Name="finish_Time" Content="00:00:00" Foreground="White" HorizontalAlignment="Right" Margin="0,0,10,5" VerticalAlignment="Center" Width="64" Height="31" Grid.Column="1"/>
+            </Grid>
         </Grid>
-
     </Grid>
 
 
