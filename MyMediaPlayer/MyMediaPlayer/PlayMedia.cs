@@ -17,6 +17,7 @@ namespace MyMediaPlayer
             Run,
             Pause,
             Stop,
+            Seek,
         }           
 
         private Thread thread;
@@ -46,6 +47,7 @@ namespace MyMediaPlayer
         private const int scalerNum = 4;
         private const int rasterNum = 4;
         private int scalerId;
+        private int rasterId;
         private int frameGap;
         private bool isEOF;
         private long playTime;
@@ -189,13 +191,14 @@ namespace MyMediaPlayer
             this.slider = slider;
 
             scalerId = 0;
+            rasterId = 0;
 
             videoPool = new PacketPool();
             audioPool = new PacketPool();
             fPool = new FrameBuffer(frameSize);
 
-            isEOF = false;
-            state = State.Init;         
+            isEOF = false;           
+            state = State.Init;
 
             return 0;
         }
@@ -214,19 +217,20 @@ namespace MyMediaPlayer
             try
             {
                 while (ffmpeg.av_read_frame(pFormatCtx, packet) == 0)
-                {                                     
+                {                  
+                    if (state == State.Seek)
+                    {
+                        while (state == State.Seek)
+                        {                          
+                            Thread.Sleep(100);
+                        }
+                    }
                     while (videoPool.isFull() || audioPool.isFull())
                     {
-                        if (state == State.Stop)
-                        {
-                            break;
-                        }
+                        if (state == State.Stop) break;
                         Thread.Sleep(20);
                     }
-                    if (state == State.Stop)
-                    {
-                        break;
-                    }
+                    if (state == State.Stop) break;
                     if (packet->stream_index == videoIndex)
                     {
                         videoPool.putPacket(*packet);                                             
@@ -279,6 +283,13 @@ namespace MyMediaPlayer
                     {
                         break;
                     }
+                    if (state == State.Seek)
+                    {
+                        while (state == State.Seek)
+                        {
+                            Thread.Sleep(100);
+                        }
+                    }
                     if (videoPool.isEmpty())
                     {
                         if (isEOF == true) break;
@@ -314,6 +325,7 @@ namespace MyMediaPlayer
                         AVFrame* tFrame = ffmpeg.av_frame_clone(pFrameVideo);
                         fPool.vFrame[fPool.fPut] = *tFrame;
                         fPool.status[fPool.fPut] = FrameBuffer.eFrameStatus.F_FRAME;
+                        fPool.pts[fPool.fPut] = pFrameVideo->best_effort_timestamp;
 
                         if (++fPool.fPut == fPool.fSize) fPool.fPut = 0;
 
@@ -336,6 +348,7 @@ namespace MyMediaPlayer
             }
             videoDrawTask.Join();
 
+            ResetFramePool();
             videoPool.clear();
             ffmpeg.av_frame_unref(pFrameVideo);        
         }
@@ -352,6 +365,14 @@ namespace MyMediaPlayer
                 if (state == State.Stop)
                 {
                     break;
+                }
+
+                if (state == State.Seek)
+                {
+                    while (state == State.Seek)
+                    {                   
+                        Thread.Sleep(100);
+                    }
                 }
 
                 lock (this)
@@ -401,13 +422,23 @@ namespace MyMediaPlayer
 
         private unsafe void VideoRasterTask()
         {
+            int rasterNum = rasterId;
             int rastPos;
+            lock (this) { rasterId++; }
 
             while (true)
             {
                 if (state == State.Stop)
                 {
                     break;
+                }
+
+                if (state == State.Seek)
+                {
+                    while (state == State.Seek)
+                    {
+                        Thread.Sleep(100);
+                    }
                 }
 
                 lock (this)
@@ -459,9 +490,9 @@ namespace MyMediaPlayer
                 {
                     break;
                 }
-                if (state == State.Pause)
+                if (state == State.Pause || state == State.Seek)
                 {
-                    while (state == State.Pause)
+                    while (state == State.Pause || state == State.Seek)
                     {
                         Thread.Sleep(100);
                     }
@@ -500,7 +531,6 @@ namespace MyMediaPlayer
                 }
                 QueryPerformanceCounter(out lastDrawTick);
 
-
                 if (++drawpos == fPool.fSize) drawpos = 0;
             }
         }
@@ -524,6 +554,13 @@ namespace MyMediaPlayer
                         Thread.Sleep(20);
                         continue;
                     }
+                    if (state == State.Seek)
+                    {
+                        while (state == State.Seek)
+                        {
+                            Thread.Sleep(100);
+                        }
+                    }
 
                     packet = audioPool.getPacket();
                     ret = ffmpeg.avcodec_send_packet(pCodeCtxAudio, &packet);
@@ -546,7 +583,9 @@ namespace MyMediaPlayer
                         {
                             startTime.Content = (playTime / 3600).ToString() + ":" + (playTime % 3600 / 60).ToString() + ":" + (playTime % 3600 % 60).ToString();
                         }));
-                            sdlAudio.PlayAudio((IntPtr)data, out_buffer_size_audio);
+
+                        sdlAudio.PlayAudio((IntPtr)data, out_buffer_size_audio);                     
+
                     } while (true);
                 }
                 ffmpeg.av_packet_unref(&packet);
@@ -558,6 +597,43 @@ namespace MyMediaPlayer
 
             audioPool.clear();
             ffmpeg.av_frame_unref(pFrameAudio);
+        }
+
+        private void ResetFramePool()
+        {
+            for (int i = 0; i < fPool.fSize; i++)
+            {
+                if (fPool.status[i] == FrameBuffer.eFrameStatus.F_FRAME)
+                {
+                    AVFrame frame = fPool.vFrame[i];
+                    ffmpeg.av_frame_unref(&frame);
+                }
+                fPool.status[i] = FrameBuffer.eFrameStatus.F_EMPTY;
+            }
+        }
+
+        public void mediaFlush()
+        {
+            sdlAudio.SDL_Pause();
+            if (audioIndex >= 0)
+            {
+                sdlAudio.Clear();
+            }
+            sdlAudio.SDL_Play();
+
+            videoPool.clear();
+            audioPool.clear();
+
+            if (pCodecCtxVideo != null) ffmpeg.avcodec_flush_buffers(pCodecCtxVideo);
+            if (pCodeCtxAudio != null) ffmpeg.avcodec_flush_buffers(pCodeCtxAudio);
+
+            ResetFramePool();
+        }
+
+        public void Seek(long offset)
+        {                 
+            ffmpeg.av_seek_frame(pFormatCtx, -1, pFormatCtx->start_time + offset * ffmpeg.AV_TIME_BASE, ffmpeg.AVSEEK_FLAG_BACKWARD);
+            state = State.Run;
         }
 
         public void Start()
@@ -641,7 +717,8 @@ namespace MyMediaPlayer
             public eFrameStatus[] status;
             public byte_ptrArray4[] _dstData;
             public int_array4[] _dstLinesize;
-            public IntPtr[] _convertedFrameBufferPtr;          
+            public IntPtr[] _convertedFrameBufferPtr;
+            public long[] pts;
 
             public FrameBuffer(System.Windows.Size frameSize)
             {
@@ -652,6 +729,7 @@ namespace MyMediaPlayer
                 _dstData = new byte_ptrArray4[fSize];
                 _dstLinesize = new int_array4[fSize];
                 _convertedFrameBufferPtr = new IntPtr[fSize];
+                pts = new long[fSize];
 
                 convertedFrameBufferSize = ffmpeg.av_image_get_buffer_size(AVPixelFormat.AV_PIX_FMT_BGR24,
                     (int)frameSize.Width, (int)frameSize.Height, 1);
@@ -720,6 +798,9 @@ namespace MyMediaPlayer
                     AVPacket packet = packetPool[i];
                     ffmpeg.av_packet_unref(&packet);
                 }
+
+                get = 0;
+                put = 0;
             }
         }
     }

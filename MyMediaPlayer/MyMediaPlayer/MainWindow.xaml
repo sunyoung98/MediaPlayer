@@ -39,7 +39,7 @@
             </Button>
             <Grid VerticalAlignment="Bottom" HorizontalAlignment="left" ShowGridLines="True" Width="850" Height="50" Margin="100,0,0,0">
                 <Label x:Name="start_Time" Content="00:00:00" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" Width="64" Height="31" Margin="0,5,0,10"/>
-                <Slider x:Name="slider" HorizontalAlignment="Left" Height="26" Margin="81,0,10,0" VerticalAlignment="Center" Width="670" Grid.ColumnSpan="2"/>
+                <Slider x:Name="slider" HorizontalAlignment="Left" Height="26" Margin="81,0,10,0" VerticalAlignment="Center" Width="670" Grid.ColumnSpan="2" PreviewMouseLeftButtonUp="slider_PreviewMouseLeftButtonUp" PreviewMouseLeftButtonDown="slider_PreviewMouseLeftButtonDown"/>
                 <Label x:Name="finish_Time" Content="00:00:00" Foreground="White" HorizontalAlignment="Right" Margin="0,0,10,5" VerticalAlignment="Center" Width="64" Height="31" Grid.Column="1"/>
             </Grid>
         </Grid>

@@ -1,19 +1,19 @@
 ﻿MyMediaPlayer
 
 
-winexe
+exe
 C#
 .cs
-C:\Users\tjsdu\Desktop\cur\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\
+D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Debug\
 MyMediaPlayer
 none
 false
 DEBUG;TRACE
-C:\Users\tjsdu\Desktop\cur\MediaPlayer\MyMediaPlayer\MyMediaPlayer\App.xaml
+D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\App.xaml
 11151548125
 8-1243813121
 12-1657537313
-151774013802
+15-195818895
 MainWindow.xaml;
 
 False

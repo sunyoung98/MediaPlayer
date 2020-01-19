@@ -82,5 +82,10 @@ namespace MyMediaPlayer
         {
             SDL.SDL_PauseAudio(0);
         }
+
+        public void Clear()
+        {
+            data.Clear();
+        }
     }
 }

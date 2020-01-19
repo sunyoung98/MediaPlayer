@@ -24,7 +24,8 @@ namespace MyMediaPlayer
 
             BinariesHelper.RegisterFFmpegBinaries();
             playMedia = new PlayMedia();
-          
+
+            
             //playDMedia = new PlayMedia();
         }
 
@@ -136,6 +137,29 @@ namespace MyMediaPlayer
                 Dimage.Margin = new Thickness(0, 70, 0, 0);
                 Dimage.Width = 774;
             }
+        }
+
+        private void slider_PreviewMouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            Console.WriteLine("slider Preview Mouse Left Button Up");
+            long pos = (long)slider.Value;
+            Console.WriteLine((pos / 3600).ToString() + ":" + (pos % 3600 / 60).ToString() + ":" + (pos % 3600 % 60).ToString());
+
+            if (playMedia.state == PlayMedia.State.Seek)
+            {
+                playMedia.Seek(pos);
+            }
+        }
+
+        private void slider_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            Console.WriteLine("slider Preview Mouse Left Button Down");
+            if (playMedia.state == PlayMedia.State.Run)
+            {
+                playMedia.state = PlayMedia.State.Seek;
+                playMedia.mediaFlush();
+            }
+
         }
     }
 }
