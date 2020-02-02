@@ -397,6 +397,16 @@ namespace MyMediaPlayer
                     Thread.Sleep(20);
                     continue;
                 }
+              
+                fPool._convertedFrameBufferPtr[scalePos] = (IntPtr)ffmpeg.av_malloc((ulong)fPool.convertedFrameBufferSize);
+
+                ffmpeg.av_image_fill_arrays(
+                        ref fPool._dstData[scalePos],
+                        ref fPool._dstLinesize[scalePos],
+                        (byte*)fPool._convertedFrameBufferPtr[scalePos],
+                        AVPixelFormat.AV_PIX_FMT_BGR24,
+                        (int)frameSize.Width,
+                        (int)frameSize.Height, 1);
 
                 vFrame = fPool.vFrame[scalePos];
                 ffmpeg.sws_scale(swsCtxVideo[scalerNum],
@@ -509,13 +519,13 @@ namespace MyMediaPlayer
 
                 QueryPerformanceCounter(out nowtick);
 
-
                 BitmapToImageSource(fPool.bitmap[drawpos]);
+                ffmpeg.av_free((void*)fPool.lastPtr);
+                fPool.lastPtr = fPool._convertedFrameBufferPtr[drawpos];
 
                 fPool.status[drawpos] = FrameBuffer.eFrameStatus.F_DRAW;
 
                 elapse = (long)(nowtick.QuadPart - lastDrawTick.QuadPart);
-                // Console.WriteLine(elapse);
 
                 if (elapse > ffmpeg.AV_TIME_BASE || elapse < 0)
                 {
@@ -524,12 +534,10 @@ namespace MyMediaPlayer
 
                 delay = frameGap * 100 - elapse;
 
-
                 if (delay > 0)
                 {
                     Thread.Sleep((int)delay / 100);
                     Console.WriteLine((int)delay / 100);
-
                 }
                 QueryPerformanceCounter(out lastDrawTick);
 
@@ -676,29 +684,28 @@ namespace MyMediaPlayer
 
         private void BitmapToImageSource(Bitmap bitmap)
         {
-
-                image.Dispatcher.BeginInvoke((Action)(() =>
+            image.Dispatcher.BeginInvoke((Action)(() =>
+            {
+                using (MemoryStream memory = new MemoryStream())
                 {
-                        using (MemoryStream memory = new MemoryStream())
-                        {
-                            if (thread.IsAlive)
-                            {
-                                bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
-                                memory.Position = 0;
+                    if (thread.IsAlive)
+                    {
+                        bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
+                        memory.Position = 0;
 
-                                BitmapImage bitmapImage = new BitmapImage();
-                                bitmapImage.BeginInit();
-                                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
-                                bitmapImage.StreamSource = memory;
-                                bitmapImage.EndInit();
-                                bitmapImage.Freeze();
-                                image.Source = bitmapImage;                              
-                                Dimage.Source = bitmapImage;
-                                memory.Dispose();
-                            }
-                            bitmap.Dispose();
-                        }
-                }));
+                        BitmapImage bitmapImage = new BitmapImage();
+                        bitmapImage.BeginInit();
+                        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmapImage.StreamSource = memory;
+                        bitmapImage.EndInit();
+                        bitmapImage.Freeze();
+                        image.Source = bitmapImage;
+                        Dimage.Source = bitmapImage;
+                        memory.Dispose();
+                    }
+                    bitmap.Dispose();
+                }
+            }));
         }
 
         private class FrameBuffer
@@ -720,6 +727,7 @@ namespace MyMediaPlayer
             public int_array4[] _dstLinesize;
             public IntPtr[] _convertedFrameBufferPtr;
             public long[] pts;
+            public IntPtr lastPtr;
 
             public FrameBuffer(System.Windows.Size frameSize)
             {
@@ -738,18 +746,7 @@ namespace MyMediaPlayer
             
                 for (int i = 0; i < fSize; i++)
                 {
-                    status[i] = eFrameStatus.F_EMPTY;
-                    _dstData[i] = new byte_ptrArray4();
-                    _dstLinesize[i] = new int_array4();
-                    _convertedFrameBufferPtr[i] = (IntPtr)ffmpeg.av_malloc((ulong)convertedFrameBufferSize);
-
-                    ffmpeg.av_image_fill_arrays(
-                        ref _dstData[i],
-                        ref _dstLinesize[i],
-                        (byte*)_convertedFrameBufferPtr[i],
-                        AVPixelFormat.AV_PIX_FMT_BGR24,
-                        (int)frameSize.Width,
-                        (int)frameSize.Height, 1);
+                    status[i] = eFrameStatus.F_EMPTY;                 
                 }
             }
         };
