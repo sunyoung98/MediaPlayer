@@ -2,7 +2,6 @@
 using System.Windows;
 using System.Windows.Threading;
 using MyMediaPlayer.FFmpeg;
-using System.Windows.Controls;
 
 namespace MyMediaPlayer
 {
@@ -11,22 +10,17 @@ namespace MyMediaPlayer
         delegate void UpdateUI();
         string videoFile;
         long fullTime;
-        long finishTime, startTime;
+        long finishTime;
         const int AV_TIME_BASE =1000000;
-        double speed = 1.0;
 
-        PlayMedia playMedia, playDMedia;
-
+        PlayMedia playMedia;
 
         public MainWindow()
         {
             InitializeComponent();
 
             BinariesHelper.RegisterFFmpegBinaries();
-            playMedia = new PlayMedia();
-
-            
-            //playDMedia = new PlayMedia();
+            playMedia = new PlayMedia();          
         }
 
         private void TimeCheck(){
@@ -49,8 +43,7 @@ namespace MyMediaPlayer
                 {
                     videoFile = dlg.FileName;
                 }
-                playMedia.Init(videoFile, image, start_Time, slider);
-                //playDMedia.Init(videoFile, Dimage);
+                playMedia.Init(videoFile, image, Dimage, start_Time, slider);                
                 fullTime = playMedia.entirePlayTime / AV_TIME_BASE;
                 finishTime = fullTime;
                 finish_Time.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new UpdateUI(TimeCheck));
@@ -70,9 +63,7 @@ namespace MyMediaPlayer
                         Play_Button.Content = "||";
                     }));
                 }
-                playMedia.Start();
-                //playDMedia.Start();
-
+                playMedia.Start();              
             }
             else if (playMedia.state == PlayMedia.State.Run)
             {
@@ -83,8 +74,7 @@ namespace MyMediaPlayer
                         Play_Button.Content = "▶";
                     }));
                 }
-                playMedia.Pause();
-                //playDMedia.Pause();
+                playMedia.Pause();            
             }
             else if (playMedia.state == PlayMedia.State.Pause)
             {
@@ -95,15 +85,13 @@ namespace MyMediaPlayer
                         Play_Button.Content = "||";
                     }));
                 }
-                playMedia.GoOn();
-                //playDMedia.GoOn();
+                playMedia.GoOn();             
             }
         }
 
         private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            playMedia.Stop();
-            //playDMedia.Stop();
+            playMedia.Stop();         
         }
 
         private void ContentControl_MouseDoubleClick_1(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -157,7 +145,7 @@ namespace MyMediaPlayer
             if (playMedia.state == PlayMedia.State.Run)
             {
                 playMedia.state = PlayMedia.State.Seek;
-                playMedia.mediaFlush();
+                playMedia.MediaFlush();
             }
 
         }

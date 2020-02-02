@@ -28,6 +28,7 @@ namespace MyMediaPlayer
         public State state = State.None;
         private System.Windows.Size frameSize;
         private System.Windows.Controls.Image image;
+        private System.Windows.Controls.Image Dimage;
 
         private AVFormatContext* pFormatCtx = null;
 
@@ -75,7 +76,7 @@ namespace MyMediaPlayer
 
 
         [Obsolete]
-        public int Init(string fileName, System.Windows.Controls.Image image, System.Windows.Controls.Label startTime, System.Windows.Controls.Slider slider)
+        public int Init(string fileName, System.Windows.Controls.Image image, System.Windows.Controls.Image Dimage, System.Windows.Controls.Label startTime, System.Windows.Controls.Slider slider)
         {         
             ffmpeg.avcodec_register_all();
 
@@ -186,6 +187,7 @@ namespace MyMediaPlayer
             }
 
             this.image = image;
+            this.Dimage = Dimage;
             entirePlayTime = pFormatCtx->duration;
             this.startTime = startTime;
             this.slider = slider;
@@ -612,7 +614,7 @@ namespace MyMediaPlayer
             }
         }
 
-        public void mediaFlush()
+        public void MediaFlush()
         {
             sdlAudio.SDL_Pause();
             if (audioIndex >= 0)
@@ -693,6 +695,8 @@ namespace MyMediaPlayer
                                 bitmapImage.Freeze();
                                 image.Source = bitmapImage;
                                 image.Visibility = System.Windows.Visibility.Visible;
+                                Dimage.Source = bitmapImage;
+                                Dimage.Visibility = System.Windows.Visibility.Visible;
                                 memory.Dispose();
                             }
                             bitmap.Dispose();
