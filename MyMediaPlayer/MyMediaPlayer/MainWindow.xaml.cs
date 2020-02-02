@@ -36,6 +36,7 @@ namespace MyMediaPlayer
                 Dispatcher.Invoke(DispatcherPriority.Normal, new Action(delegate
                 {
                     image.Visibility = Visibility.Visible;
+                    Dimage.Visibility = Visibility.Visible;
                 }));
                 Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
                 dlg.Filter = "Video Files | *.mp4; *.wmv; *.avi";
@@ -95,19 +96,18 @@ namespace MyMediaPlayer
         }
 
         private void ContentControl_MouseDoubleClick_1(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
+        {         
             if (Dimage.Visibility == Visibility.Hidden)
             {
                 Dimage.Visibility = Visibility.Visible;
                 image.Margin = new Thickness(0, 70, 0, 0);
-                image.Width = 387;
+                image.Width = 387;            
             }
             else if (image.Visibility == Visibility.Visible)
             {
                 Dimage.Visibility = Visibility.Hidden;
                 image.Margin = new Thickness(0, 70, 9.6, 0);
                 image.Width = 774;
-
             }
         }
 

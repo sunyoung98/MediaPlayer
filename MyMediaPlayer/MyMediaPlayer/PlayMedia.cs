@@ -679,7 +679,6 @@ namespace MyMediaPlayer
 
                 image.Dispatcher.BeginInvoke((Action)(() =>
                 {
-                        image.Visibility = System.Windows.Visibility.Hidden;
                         using (MemoryStream memory = new MemoryStream())
                         {
                             if (thread.IsAlive)
@@ -693,10 +692,8 @@ namespace MyMediaPlayer
                                 bitmapImage.StreamSource = memory;
                                 bitmapImage.EndInit();
                                 bitmapImage.Freeze();
-                                image.Source = bitmapImage;
-                                image.Visibility = System.Windows.Visibility.Visible;
+                                image.Source = bitmapImage;                              
                                 Dimage.Source = bitmapImage;
-                                Dimage.Visibility = System.Windows.Visibility.Visible;
                                 memory.Dispose();
                             }
                             bitmap.Dispose();
