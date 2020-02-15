@@ -55,6 +55,11 @@ namespace MyMediaPlayer
         private System.Windows.Controls.Label startTime;
         private System.Windows.Controls.Slider slider;
 
+        private bool decodeSeek;
+        private bool[] scaleSeek;
+        private bool[] rasterSeek;
+        private bool drawSeek;
+
         public long entirePlayTime { get; set; }
 
         [DllImport("Kernel32.dll")]
@@ -202,6 +207,19 @@ namespace MyMediaPlayer
             isEOF = false;           
             state = State.Init;
 
+            decodeSeek = false;
+            drawSeek = false;
+            scaleSeek = new bool[scalerNum];
+            for (int i = 0; i < scalerNum; i++)
+            {
+                scaleSeek[i] = false;
+            }
+            rasterSeek = new bool[rasterNum];
+            for (int i = 0; i < rasterNum; i++)
+            {
+                rasterSeek[i] = false;
+            }
+
             return 0;
         }
 
@@ -287,6 +305,8 @@ namespace MyMediaPlayer
                     }
                     if (state == State.Seek)
                     {
+                        decodeSeek = false;
+                        fPool.fPut = 0;
                         while (state == State.Seek)
                         {
                             Thread.Sleep(100);
@@ -311,12 +331,20 @@ namespace MyMediaPlayer
                         {
                             if (state == State.Stop) break;
                             if (fPool.status[fPool.fPut] == FrameBuffer.eFrameStatus.F_EMPTY || fPool.status[fPool.fPut] == FrameBuffer.eFrameStatus.F_DRAW)
+                            {                              
+                                break;
+                            }
+                            if (state == State.Seek)
                             {
                                 break;
                             }
-                            Thread.Sleep(20);
+                            Thread.Sleep(20);                          
                         }
 
+                        if (state == State.Seek)
+                        {
+                            break;
+                        }
                         if (state == State.Stop)
                         {
                             ffmpeg.av_packet_unref(&packet);
@@ -371,6 +399,7 @@ namespace MyMediaPlayer
 
                 if (state == State.Seek)
                 {
+                    scaleSeek[scalerNum] = false;
                     while (state == State.Seek)
                     {                   
                         Thread.Sleep(100);
@@ -447,6 +476,7 @@ namespace MyMediaPlayer
 
                 if (state == State.Seek)
                 {
+                    rasterSeek[rasterNum] = false;
                     while (state == State.Seek)
                     {
                         Thread.Sleep(100);
@@ -502,9 +532,18 @@ namespace MyMediaPlayer
                 {
                     break;
                 }
-                if (state == State.Pause || state == State.Seek)
+                if (state == State.Pause)
                 {
-                    while (state == State.Pause || state == State.Seek)
+                    while (state == State.Pause)
+                    {
+                        Thread.Sleep(100);
+                    }
+                }
+                if (state == State.Seek)
+                {
+                    drawpos = 0;
+                    drawSeek = false;
+                    while (state == State.Seek)
                     {
                         Thread.Sleep(100);
                     }
@@ -519,11 +558,7 @@ namespace MyMediaPlayer
 
                 QueryPerformanceCounter(out nowtick);
 
-                BitmapToImageSource(fPool.bitmap[drawpos]);
-                ffmpeg.av_free((void*)fPool.lastPtr);
-                fPool.lastPtr = fPool._convertedFrameBufferPtr[drawpos];
-
-                fPool.status[drawpos] = FrameBuffer.eFrameStatus.F_DRAW;
+                BitmapToImageSource(fPool.bitmap[drawpos], drawpos);              
 
                 elapse = (long)(nowtick.QuadPart - lastDrawTick.QuadPart);
 
@@ -610,7 +645,7 @@ namespace MyMediaPlayer
         }
 
         private void ResetFramePool()
-        {
+        {          
             for (int i = 0; i < fPool.fSize; i++)
             {
                 if (fPool.status[i] == FrameBuffer.eFrameStatus.F_FRAME)
@@ -618,18 +653,68 @@ namespace MyMediaPlayer
                     AVFrame frame = fPool.vFrame[i];
                     ffmpeg.av_frame_unref(&frame);
                 }
+                if (fPool.status[i] == FrameBuffer.eFrameStatus.F_SCALE)
+                {
+                    ffmpeg.av_free((void*)fPool._convertedFrameBufferPtr[i]);
+                }
+                if (fPool.status[i] == FrameBuffer.eFrameStatus.F_RASTER)
+                {
+                    fPool.bitmap[i].Dispose();
+                    ffmpeg.av_free((void*)fPool._convertedFrameBufferPtr[i]);
+                }
                 fPool.status[i] = FrameBuffer.eFrameStatus.F_EMPTY;
             }
         }
 
         public void MediaFlush()
         {
+            decodeSeek = true;
+            drawSeek = true;
+            for (int i = 0; i < scalerNum; i++)
+            {
+                scaleSeek[i] = true;
+            }       
+            for (int i = 0; i < rasterNum; i++)
+            {
+                rasterSeek[i] = true;
+            }
+
             sdlAudio.SDL_Pause();
             if (audioIndex >= 0)
             {
                 sdlAudio.Clear();
             }
             sdlAudio.SDL_Play();
+
+            while (true)
+            {
+                bool cond = true;
+
+                if (decodeSeek == true)
+                {
+                    cond = false;
+                }
+                if (drawSeek == true)
+                {
+                    cond = false;
+                }
+                for (int i = 0; i < scalerNum; i++)
+                {
+                    if (scaleSeek[i] == true)
+                    {
+                        cond = false;
+                    }
+                }
+                for (int i = 0; i < rasterNum; i++)
+                {
+                    if (rasterSeek[i] == true)
+                    {
+                        cond = false;
+                    }
+                }
+
+                if (cond) break;
+            }
 
             videoPool.clear();
             audioPool.clear();
@@ -642,7 +727,7 @@ namespace MyMediaPlayer
 
         public void Seek(long offset)
         {                 
-            ffmpeg.av_seek_frame(pFormatCtx, -1, pFormatCtx->start_time + offset * ffmpeg.AV_TIME_BASE, ffmpeg.AVSEEK_FLAG_BACKWARD);
+            ffmpeg.av_seek_frame(pFormatCtx, -1, pFormatCtx->start_time + offset * ffmpeg.AV_TIME_BASE, ffmpeg.AVSEEK_FLAG_BACKWARD);          
             state = State.Run;
         }
 
@@ -682,14 +767,19 @@ namespace MyMediaPlayer
             state = State.Stop;
         }
 
-        private void BitmapToImageSource(Bitmap bitmap)
+        private void BitmapToImageSource(Bitmap bitmap, int index)
         {
             image.Dispatcher.BeginInvoke((Action)(() =>
             {
+                if (state == State.Seek)
+                {
+                    return;
+                }
+
                 using (MemoryStream memory = new MemoryStream())
                 {
                     if (thread.IsAlive)
-                    {
+                    {                     
                         bitmap.Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
                         memory.Position = 0;
 
@@ -700,10 +790,12 @@ namespace MyMediaPlayer
                         bitmapImage.EndInit();
                         bitmapImage.Freeze();
                         image.Source = bitmapImage;
-                        Dimage.Source = bitmapImage;
+                        Dimage.Source = bitmapImage;   
                         memory.Dispose();
                     }
                     bitmap.Dispose();
+                    ffmpeg.av_free((void*)fPool._convertedFrameBufferPtr[index]);
+                    fPool.status[index] = FrameBuffer.eFrameStatus.F_DRAW;
                 }
             }));
         }
@@ -727,7 +819,6 @@ namespace MyMediaPlayer
             public int_array4[] _dstLinesize;
             public IntPtr[] _convertedFrameBufferPtr;
             public long[] pts;
-            public IntPtr lastPtr;
 
             public FrameBuffer(System.Windows.Size frameSize)
             {
@@ -739,14 +830,14 @@ namespace MyMediaPlayer
                 _dstLinesize = new int_array4[fSize];
                 _convertedFrameBufferPtr = new IntPtr[fSize];
                 pts = new long[fSize];
-
+               
                 convertedFrameBufferSize = ffmpeg.av_image_get_buffer_size(AVPixelFormat.AV_PIX_FMT_BGR24,
                     (int)frameSize.Width, (int)frameSize.Height, 1);
                 fPut = 0;
             
                 for (int i = 0; i < fSize; i++)
                 {
-                    status[i] = eFrameStatus.F_EMPTY;                 
+                    status[i] = eFrameStatus.F_EMPTY;
                 }
             }
         };
