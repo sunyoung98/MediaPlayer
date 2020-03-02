@@ -6,24 +6,22 @@
         xmlns:local="clr-namespace:MyMediaPlayer"
         mc:Ignorable="d"
         ResizeMode="CanResizeWithGrip"
-        Title="MainWindow"  Height ="600" Width="1000"
+        Title="MainWindow"  Height ="100" Width="1000"
         Closing="MainWindow_Closing"
         Background="Black">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
         </Grid.ColumnDefinitions>
-        <ContentControl MouseDoubleClick="ContentControl_MouseDoubleClick_1">
 
-            <Image x:Name="image" HorizontalAlignment="Left"
-                    Margin="5,70,0,0" VerticalAlignment="Top" Width="490" Visibility="Visible"/>
-        </ContentControl>
-        <ContentControl MouseDoubleClick="ContentControl_MouseDoubleClick_2">
+        <Grid VerticalAlignment="Top" HorizontalAlignment="left" ShowGridLines="True" Width="1000" Height="50" >
+            <Slider x:Name="slider2" HorizontalAlignment="Center" Height="26" Margin="0,0,0,0" VerticalAlignment="Center" Visibility="Hidden" Width="670" Value="100" Minimum="1" Maximum="100" PreviewMouseLeftButtonUp="slider_PreviewMouseLeftButtonUp2"/>
+        </Grid>
+        <Image x:Name="image" HorizontalAlignment="Left"
+                    Margin="0,70,0,70" VerticalAlignment="Top" Width="0" Visibility="Visible" />
             <Image x:Name="Dimage" HorizontalAlignment="Left"
-                    Margin="500,70,0,5" VerticalAlignment="Top" Width="490" Visibility="Visible"/>
-        </ContentControl>
-        <Grid VerticalAlignment="Bottom" HorizontalAlignment="left" ShowGridLines="True" Width="1000" Height="50" >
-
+                        Margin="0,70,0,70" VerticalAlignment="Top" Width="0" Visibility="Visible"/>
+                <Grid VerticalAlignment="Bottom" HorizontalAlignment="left" ShowGridLines="True" Width="1000" Height="50" >
             <Button x:Name="Play_Button" Content="▶" Margin="50,0,20,0"
                     HorizontalAlignment="Left"
                     BorderBrush="#fff"

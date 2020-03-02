@@ -5,6 +5,8 @@ using System.IO;
 using System.Windows.Media.Imaging;
 using FFmpeg.AutoGen;
 using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Media;
 
 namespace MyMediaPlayer
 {
@@ -26,7 +28,7 @@ namespace MyMediaPlayer
         private FrameBuffer fPool;
 
         public State state = State.None;
-        private System.Windows.Size frameSize;
+        public System.Windows.Size frameSize;
         private System.Windows.Controls.Image image;
         private System.Windows.Controls.Image Dimage;
 
@@ -52,6 +54,7 @@ namespace MyMediaPlayer
         private int frameGap;
         private bool isEOF;
         private long playTime;
+        public double overlayRate = 1.0;
         private System.Windows.Controls.Label startTime;
         private System.Windows.Controls.Slider slider;
 
@@ -59,6 +62,11 @@ namespace MyMediaPlayer
         private bool[] scaleSeek;
         private bool[] rasterSeek;
         private bool drawSeek;
+
+        private bool initCheck = false;
+
+        ScaleTransform scale = new ScaleTransform();
+        double originalWidth, originalHeight;
 
         public long entirePlayTime { get; set; }
 
@@ -78,10 +86,21 @@ namespace MyMediaPlayer
         [DllImport("user32")]
         public static extern UInt16 GetAsyncKeyState(Int32 vKey);
 
+        void Window_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            ChangeSize(e.NewSize.Width, e.NewSize.Height);
+        }
 
+        private void ChangeSize(double width, double height)
+        {
+            scale.ScaleX = width / originalWidth;
+            scale.ScaleY = height / originalHeight;
+            FrameworkElement rootElement = ((MainWindow)Application.Current.MainWindow).Content as FrameworkElement;
+            rootElement.LayoutTransform = scale;
+        }
 
         [Obsolete]
-        public int Init(string fileName, System.Windows.Controls.Image image, System.Windows.Controls.Image Dimage, System.Windows.Controls.Label startTime, System.Windows.Controls.Slider slider)
+        public int Init(string fileName, System.Windows.Controls.Image image, System.Windows.Controls.Image Dimage, System.Windows.Controls.Label startTime, System.Windows.Controls.Slider slider, System.Windows.Controls.Slider slider2)
         {         
             ffmpeg.avcodec_register_all();
 
@@ -145,6 +164,28 @@ namespace MyMediaPlayer
                 frameSize = new System.Windows.Size(pCodecCtxVideo->width, pCodecCtxVideo->height);
                 double frameRate = ffmpeg.av_q2d(pFormatCtx->streams[videoIndex]->r_frame_rate);
                 frameGap = (int)(1000 / frameRate);
+
+                double frameWidth = frameSize.Width;
+                double frameHeight = frameSize.Height;
+                 image.Dispatcher.BeginInvoke((Action)(() =>
+                 {
+                     slider2.Visibility = System.Windows.Visibility.Visible;
+                     ((MainWindow)System.Windows.Application.Current.MainWindow).Width = frameWidth;
+                     ((MainWindow)System.Windows.Application.Current.MainWindow).Height = frameHeight +140;
+                     if (initCheck == false)
+                     {
+                         originalHeight = ((MainWindow)System.Windows.Application.Current.MainWindow).ActualHeight;
+                         originalWidth = ((MainWindow)System.Windows.Application.Current.MainWindow).ActualWidth;
+                     }
+                     image.Width = frameWidth;
+                     image.Height = frameHeight; 
+                     Dimage.Width = frameWidth;
+                     Dimage.Height = frameHeight;
+                     slider.Width = frameWidth * 0.7;
+                     slider2.Width = frameWidth*0.7;
+                     ((MainWindow)System.Windows.Application.Current.MainWindow).SizeChanged += new SizeChangedEventHandler(Window_SizeChanged);
+
+                 }));
 
                 pFrameVideo = ffmpeg.av_frame_alloc();
                 swsCtxVideo = new SwsContext*[4];
@@ -504,12 +545,18 @@ namespace MyMediaPlayer
                     continue;
                 }
 
+
                 fPool.bitmap[rastPos] = new Bitmap(
                             fPool.RGBFrame[rastPos].width,
                             fPool.RGBFrame[rastPos].height,
                             fPool.RGBFrame[rastPos].linesize[0],
                             System.Drawing.Imaging.PixelFormat.Format24bppRgb,
                             (IntPtr)fPool.RGBFrame[rastPos].data[0]);
+
+                fPool.croppedBitmap[rastPos] = fPool.bitmap[rastPos].Clone(
+                    new Rectangle(0, 0, (int)(fPool.RGBFrame[rastPos].width * overlayRate), fPool.RGBFrame[rastPos].height),
+                    System.Drawing.Imaging.PixelFormat.DontCare);
+
                 fPool.status[rastPos] = FrameBuffer.eFrameStatus.F_RASTER;
             }
         }
@@ -789,11 +836,35 @@ namespace MyMediaPlayer
                         bitmapImage.StreamSource = memory;
                         bitmapImage.EndInit();
                         bitmapImage.Freeze();
-                        image.Source = bitmapImage;
-                        Dimage.Source = bitmapImage;   
+                        image.Source = bitmapImage;                      
+                        memory.Dispose();
+
+                        Console.WriteLine("1 - "+System.Windows.Application.Current.MainWindow.ActualWidth);
+                        Console.WriteLine(System.Windows.Application.Current.MainWindow.ActualHeight);
+
+                        Console.WriteLine("2 - "+frameSize.Width);
+                        Console.WriteLine(frameSize.Height);
+                    }
+                    bitmap.Dispose();                
+                }
+
+                using (MemoryStream memory = new MemoryStream())
+                {
+                    if (thread.IsAlive)
+                    {
+                        fPool.croppedBitmap[index].Save(memory, System.Drawing.Imaging.ImageFormat.Bmp);
+                        memory.Position = 0;
+
+                        BitmapImage bitmapImage = new BitmapImage();
+                        bitmapImage.BeginInit();
+                        bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmapImage.StreamSource = memory;
+                        bitmapImage.EndInit();
+                        bitmapImage.Freeze();
+                        Dimage.Source = bitmapImage;
                         memory.Dispose();
                     }
-                    bitmap.Dispose();
+                    fPool.croppedBitmap[index].Dispose();
                     ffmpeg.av_free((void*)fPool._convertedFrameBufferPtr[index]);
                     fPool.status[index] = FrameBuffer.eFrameStatus.F_DRAW;
                 }
@@ -814,6 +885,7 @@ namespace MyMediaPlayer
             public AVFrame[] vFrame;
             public AVFrame[] RGBFrame;
             public Bitmap[] bitmap;
+            public Bitmap[] croppedBitmap;
             public eFrameStatus[] status;
             public byte_ptrArray4[] _dstData;
             public int_array4[] _dstLinesize;
@@ -826,6 +898,7 @@ namespace MyMediaPlayer
                 status = new eFrameStatus[fSize];
                 RGBFrame = new AVFrame[fSize];
                 bitmap = new Bitmap[fSize];
+                croppedBitmap = new Bitmap[fSize];
                 _dstData = new byte_ptrArray4[fSize];
                 _dstLinesize = new int_array4[fSize];
                 _convertedFrameBufferPtr = new IntPtr[fSize];

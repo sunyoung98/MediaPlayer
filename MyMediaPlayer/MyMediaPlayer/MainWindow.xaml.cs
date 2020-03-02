@@ -15,43 +15,13 @@ namespace MyMediaPlayer
         const int AV_TIME_BASE =1000000;
 
         PlayMedia playMedia;
-        double originalWidth, originalHeight;
-        ScaleTransform scale = new ScaleTransform();
-
-        void Window1_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            ChangeSize(e.NewSize.Width, e.NewSize.Height);
-        }
-        void Window1_Loaded(object sender, RoutedEventArgs e)
-        {
-            originalWidth = this.Width;
-            originalHeight = this.Height;
-            if (this.WindowState == WindowState.Maximized)
-            {
-                ChangeSize(this.ActualWidth, this.ActualHeight);
-            }
-            this.SizeChanged += new SizeChangedEventHandler(Window1_SizeChanged);
-            // Manually alter window height and width
-            this.MinWidth = 300;
-            this.MinHeight = 300;
-        }
-
-
-
-        private void ChangeSize(double width, double height)
-        {
-            scale.ScaleX = width / originalWidth;
-            scale.ScaleY = height / originalHeight;
-            FrameworkElement rootElement = this.Content as FrameworkElement;
-            rootElement.LayoutTransform = scale;
-        }
         public MainWindow()
         {
             InitializeComponent();
-            this.Loaded += new RoutedEventHandler(Window1_Loaded);
             BinariesHelper.RegisterFFmpegBinaries();
             playMedia = new PlayMedia();
         }
+
 
         private void TimeCheck(){
 
@@ -74,7 +44,7 @@ namespace MyMediaPlayer
                 {
                     videoFile = dlg.FileName;
                 }
-                playMedia.Init(videoFile, image, Dimage, start_Time, slider);                
+                playMedia.Init(videoFile, image, Dimage, start_Time, slider,slider2);                
                 fullTime = playMedia.entirePlayTime / AV_TIME_BASE;
                 finishTime = fullTime;
                 finish_Time.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new UpdateUI(TimeCheck));
@@ -95,6 +65,7 @@ namespace MyMediaPlayer
                     }));
                 }
                 playMedia.Start();
+                
             }
             else if (playMedia.state == PlayMedia.State.Run)
             {
@@ -125,37 +96,6 @@ namespace MyMediaPlayer
             playMedia.Stop();         
         }
 
-        private void ContentControl_MouseDoubleClick_1(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {         
-            if (Dimage.Visibility == Visibility.Hidden)
-            {
-                Dimage.Visibility = Visibility.Visible;
-                image.Margin = new Thickness(0, 70, 0, 0);
-                image.Width = originalWidth / 2;          
-            }
-            else if (image.Visibility == Visibility.Visible)
-            {
-                Dimage.Visibility = Visibility.Hidden;
-                image.Margin = new Thickness(0, 70,0, 0);
-                image.Width = originalWidth;
-            }
-        }
-
-        private void ContentControl_MouseDoubleClick_2(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (image.Visibility == Visibility.Hidden)
-            {
-                image.Visibility = Visibility.Visible;
-                Dimage.Margin = new Thickness(originalWidth/2, 70,0, 0);
-                Dimage.Width = originalWidth / 2;
-            }
-            else if (Dimage.Visibility == Visibility.Visible)
-            {
-                image.Visibility = Visibility.Hidden;
-                Dimage.Margin = new Thickness(0, 70, 0, 0);
-                Dimage.Width = originalWidth;
-            }
-        }
 
         private void slider_PreviewMouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
@@ -178,6 +118,11 @@ namespace MyMediaPlayer
                 playMedia.MediaFlush();
             }
 
+        }
+
+        private void slider_PreviewMouseLeftButtonUp2(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            playMedia.overlayRate = slider2.Value / slider2.Maximum;
         }
     }
 }

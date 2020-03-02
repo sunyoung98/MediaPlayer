@@ -4,17 +4,17 @@
 exe
 C#
 .cs
-D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Release\
+C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Release\
 MyMediaPlayer
 none
 false
 TRACE
-D:\MediaPlayer\MyMediaPlayer\MyMediaPlayer\App.xaml
+C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\App.xaml
 11151548125
 8-1243813121
 12-1657537313
-15-195818895
+15-500551804
 MainWindow.xaml;
 
-False
+True
 
