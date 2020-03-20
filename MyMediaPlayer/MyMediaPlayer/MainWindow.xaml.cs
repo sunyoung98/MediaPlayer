@@ -1,25 +1,40 @@
 ﻿using System;
 using System.Windows;
-using System.Windows.Media;
 using System.Windows.Threading;
 using MyMediaPlayer.FFmpeg;
+using OpenCvSharp;
 
 namespace MyMediaPlayer
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : System.Windows.Window
     {
         delegate void UpdateUI();
         string videoFile;
         long fullTime;
         long finishTime;
         const int AV_TIME_BASE =1000000;
-
-        PlayMedia playMedia;
+        public PlayMedia playMedia;
         public MainWindow()
         {
             InitializeComponent();
             BinariesHelper.RegisterFFmpegBinaries();
             playMedia = new PlayMedia();
+            playMedia.grid = grid;
+            playMedia.grid2 = grid2;
+            playMedia.grid3 = grid3;
+
+
+            /*Mat src = new Mat("C:\\Users\\BONITO\\FSRCNN-OpenCV-master\\im_3.png", ImreadModes.Grayscale);
+            using (new OpenCvSharp.Window("src image", src))
+            {
+                Cv2.WaitKey();                      // 키가 입력되면 그림 지움
+            }
+            System.Drawing.Bitmap bitmap = OpenCvSharp.Extensions.BitmapConverter.ToBitmap(src);
+            Mat mat = OpenCvSharp.Extensions.BitmapConverter.ToMat(bitmap);
+            using (new OpenCvSharp.Window("mat image", mat))
+            {
+                Cv2.WaitKey();                      // 키가 입력되면 그림 지움
+            }*/
         }
 
 

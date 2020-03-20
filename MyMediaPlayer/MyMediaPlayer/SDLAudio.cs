@@ -32,24 +32,28 @@ namespace MyMediaPlayer
         }
         void SDL_AudioCallback(IntPtr userdata, IntPtr stream, int len)
         {
-            if (data.Count == 0)
+            lock (data)
             {
+                if (data.Count == 0)
+                {
+                    for (int i = 0; i < len; i++)
+                    {
+                        ((byte*)stream)[i] = 0;
+                    }
+                    return;
+                }
                 for (int i = 0; i < len; i++)
                 {
-                    ((byte*)stream)[i] = 0;
+
+                    if (data[0].len > i)
+                    {
+                        ((byte*)stream)[i] = data[0].pcm[i];
+                    }
+                    else
+                        ((byte*)stream)[i] = 0;
                 }
-                return;
+                data.RemoveAt(0);
             }
-            for (int i = 0; i < len; i++)
-            {
-                if (data[0].len > i)
-                {
-                    ((byte*)stream)[i] = data[0].pcm[i];
-                }
-                else
-                    ((byte*)stream)[i] = 0;
-            }
-            data.RemoveAt(0);
         }
         public int SDL_Init(AVCodecContext* audioCtx)
         {
