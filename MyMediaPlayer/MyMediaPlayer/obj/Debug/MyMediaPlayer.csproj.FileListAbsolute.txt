@@ -140,3 +140,4 @@ C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\OpenCv
 C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\OpenCvSharp.Extensions.xml
 C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\OpenCvSharp.UserInterface.pdb
 C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\OpenCvSharp.UserInterface.xml
+C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Debug\fsrcnn.dll

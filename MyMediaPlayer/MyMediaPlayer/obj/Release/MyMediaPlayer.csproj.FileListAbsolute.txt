@@ -68,3 +68,5 @@ C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Release\MyMe
 C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Release\MyMediaPlayer.csproj.CopyComplete
 C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Release\MyMediaPlayer.exe
 C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\obj\Release\MyMediaPlayer.pdb
+C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Release\fsrcnn.dll
+C:\Users\BONITO\Desktop\MediaPlayer\MyMediaPlayer\MyMediaPlayer\bin\Release\test.dll
